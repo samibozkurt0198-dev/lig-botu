@@ -12,17 +12,6 @@ class DegerSistemi(commands.Cog):
         sayi = re.findall(r'\d+', miktar_str)
         return int(sayi[0]) if sayi else 0
 
-    def yetki_kontrol():
-        async def predicate(ctx):
-            # Yöneticiyse veya Değer Yetkilisi rolü varsa izin ver
-            if ctx.author.guild_permissions.administrator:
-                return True
-            role = discord.utils.get(ctx.guild.roles, name="Değer Yetkilisi")
-            if role in ctx.author.roles:
-                return True
-            raise commands.MissingRole("Değer Yetkilisi")
-        return commands.check(predicate)
-
     @commands.command(aliases=["antrenman"])
     async def ant(self, ctx):
         user_id = ctx.author.id
@@ -57,8 +46,13 @@ class DegerSistemi(commands.Cog):
         await ctx.send(f"⚽ **PENALTI**\n\n{metin}")
 
     @commands.command()
-    @yetki_kontrol()
     async def dver(self, ctx, member: discord.Member, miktar: str):
+        # Yetki Kontrolü (Yönetici veya Değer Yetkilisi rolü olanlar)
+        has_role = discord.utils.get(ctx.author.roles, name="Değer Yetkilisi")
+        if not (ctx.author.guild_permissions.administrator or has_role):
+            await ctx.send("❌ Bu komutu sadece **Değer Yetkilisi** kullanabilir!")
+            return
+
         mevcut_match = re.search(r'(\d+)M', member.display_name)
         eski_val = int(mevcut_match.group(1)) if mevcut_match else 1
         
@@ -75,8 +69,13 @@ class DegerSistemi(commands.Cog):
         await ctx.send(embed=embed)
 
     @commands.command()
-    @yetki_kontrol()
     async def dsil(self, ctx, member: discord.Member, miktar: str):
+        # Yetki Kontrolü
+        has_role = discord.utils.get(ctx.author.roles, name="Değer Yetkilisi")
+        if not (ctx.author.guild_permissions.administrator or has_role):
+            await ctx.send("❌ Bu komutu sadece **Değer Yetkilisi** kullanabilir!")
+            return
+
         mevcut_match = re.search(r'(\d+)M', member.display_name)
         eski_val = int(mevcut_match.group(1)) if mevcut_match else 1
         
@@ -92,11 +91,6 @@ class DegerSistemi(commands.Cog):
         )
         await ctx.send(embed=embed)
 
-    @dver.error
-    @dsil.error
-    async def yetki_error(self, ctx, error):
-        if isinstance(error, commands.MissingRole) or isinstance(error, commands.CheckFailure):
-            await ctx.send("❌ Bu komutu sadece **Değer Yetkilisi** rolüne sahip kişiler veya Yöneticiler kullanabilir!")
-
 async def setup(bot):
     await bot.add_cog(DegerSistemi(bot))
+
