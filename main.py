@@ -4,8 +4,7 @@ import os
 import asyncio
 
 intents = discord.Intents.all()
-# Görsellerdeki gibi komutların .ant veya .pen ile çalışması için command_prefix='.' yapıldı
-bot = commands.Bot(command_prefix=".", intents=intents)
+bot = commands.Bot(command_prefix="!", intents=intents)
 
 @bot.event
 async def on_ready():
