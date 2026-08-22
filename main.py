@@ -1,16 +1,35 @@
 import discord
 from discord.ext import commands
 import os
+import asyncio
 
 intents = discord.Intents.all()
 bot = commands.Bot(command_prefix="!", intents=intents)
 
 @bot.event
 async def on_ready():
-    print(f'{bot.user.name} online!')
+    print(f'{bot.user.name} başarıyla aktif oldu!')
 
-@bot.command()
-async def ping(ctx):
-    await ctx.send("Pong!")
+# Modülleri yükleme fonksiyonu
+initial_extensions = [
+    'cogs.kayit',
+    'cogs.kadro',
+    'cogs.sirket',
+    'cogs.moderasyon'
+]
 
-bot.run(os.getenv("DISCORD_TOKEN"))
+async def load_extensions():
+    for extension in initial_extensions:
+        try:
+            await bot.load_extension(extension)
+            print(f'{extension} yüklendi.')
+        except Exception as e:
+            print(f'{extension} yüklenirken hata oluştu: {e}')
+
+async def main():
+    async with bot:
+        await load_extensions()
+        await bot.start(os.getenv("DISCORD_TOKEN"))
+
+if __name__ == "__main__":
+    asyncio.run(main())
