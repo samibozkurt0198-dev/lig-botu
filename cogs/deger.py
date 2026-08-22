@@ -1,11 +1,17 @@
 import discord
 from discord.ext import commands
 import random
+import re
 
 class DegerSistemi(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self.antrenman_sayac = {} # {user_id: count}
+        self.antrenman_sayac = {}
+
+    def miktar_parse(self, miktar_str: str) -> int:
+        """'5M' veya '300M' gibi girdileri sayıya çevirir."""
+        sayi = re.findall(r'\d+', miktar_str)
+        return int(sayi[0]) if sayi else 0
 
     # --- ANTRENMAN KOMUTU (.ant) ---
     @commands.command(aliases=["antrenman"])
@@ -44,29 +50,49 @@ class DegerSistemi(commands.Cog):
 
     # --- DEĞER VERME KOMUTU (.dver @kullanici miktar) ---
     @commands.command()
-    @commands.has_permissions(administrator=True)
+    @commands.has_role("Değer Yetkilisi")
     async def dver(self, ctx, member: discord.Member, miktar: str):
-        # Takma addan mevcut değeri çekme veya varsayılan belirleme
-        mevcut_isim = member.display_name
+        # Isimden mevcut değeri çekmeye çalışır (Örn: A.Becker | 3M€)
+        mevcut_match = re.search(r'(\d+)M', member.display_name)
+        eski_val = int(mevcut_match.group(1)) if mevcut_match else 1
         
-        embed = discord.Embed(
-            title="✅ DEĞER VERİLDİ",
-            color=discord.Color.green()
-        )
+        eklenen_val = self.miktar_parse(miktar)
+        yeni_val = eski_val + eklenen_val
+
+        embed = discord.Embed(title="✅ DEĞER VERİLDİ", color=discord.Color.green())
         embed.description = (
             f"\n👤 **Oyuncu:** {member.mention}\n"
-            f"💰 **Eski değer:** 1M€\n"
-            f"➕ **Eklenen:** {miktar}\n"
-            f"📈 **Yeni değer:** {miktar}"
+            f"💰 **Eski değer:** {eski_val}M€\n"
+            f"➕ **Eklenen:** {eklenen_val}M€\n"
+            f"📈 **Yeni değer:** {yeni_val}M€"
         )
         await ctx.send(embed=embed)
 
-    # --- NICKNAME / İSİM DEĞİŞTİRME (.dsil / .takmaad) ---
+    # --- DEĞER SİLME / DÜŞÜRME KOMUTU (.dsil @kullanici miktar) ---
     @commands.command()
-    @commands.has_permissions(administrator=True)
-    async def dsil(self, ctx, member: discord.Member, yeni_isim: str):
-        await member.edit(nick=yeni_isim)
-        await ctx.send(f"✅ **{member.name}**'in takma adı **{yeni_isim}** olarak değiştirildi!")
+    @commands.has_role("Değer Yetkilisi")
+    async def dsil(self, ctx, member: discord.Member, miktar: str):
+        mevcut_match = re.search(r'(\d+)M', member.display_name)
+        eski_val = int(mevcut_match.group(1)) if mevcut_match else 1
+        
+        silinen_val = self.miktar_parse(miktar)
+        yeni_val = max(0, eski_val - silinen_val) # Değer 0'ın altına düşmez
+
+        embed = discord.Embed(title="🔻 DEĞER SİLİNDİ / DÜŞÜRÜLDÜ", color=discord.Color.red())
+        embed.description = (
+            f"\n👤 **Oyuncu:** {member.mention}\n"
+            f"💰 **Eski değer:** {eski_val}M€\n"
+            f"➖ **Silinen:** {silinen_val}M€\n"
+            f"📉 **Yeni değer:** {yeni_val}M€"
+        )
+        await ctx.send(embed=embed)
+
+    # Rol yetkisi olmadığında verilecek hata uyarısı
+    @dver.error
+    @dsil.error
+    async def yetki_error(self, ctx, error):
+        if isinstance(error, commands.MissingRole):
+            await ctx.send("❌ Bu komutu sadece **Değer Yetkilisi** rolüne sahip kişiler kullanabilir!")
 
 async def setup(bot):
     await bot.add_cog(DegerSistemi(bot))
