@@ -9,11 +9,10 @@ class DegerSistemi(commands.Cog):
         self.antrenman_sayac = {}
 
     def miktar_parse(self, miktar_str: str) -> int:
-        """'5M' veya '300M' gibi girdileri sayıya çevirir."""
         sayi = re.findall(r'\d+', miktar_str)
         return int(sayi[0]) if sayi else 0
 
-    # --- ANTRENMAN KOMUTU (.ant) ---
+    # --- ANTRENMAN KOMUTU (!ant) ---
     @commands.command(aliases=["antrenman"])
     async def ant(self, ctx):
         user_id = ctx.author.id
@@ -34,7 +33,7 @@ class DegerSistemi(commands.Cog):
                 f"🎯 10/10 olduğunda mevcut değerine **+3M€** eklenecek."
             )
 
-    # --- PENALTI KOMUTU (.pen) ---
+    # --- PENALTI KOMUTU (!pen) ---
     @commands.command(aliases=["penalti"])
     async def pen(self, ctx):
         sonuclar = [
@@ -48,11 +47,10 @@ class DegerSistemi(commands.Cog):
             
         await ctx.send(f"⚽ **PENALTI**\n\n{metin}")
 
-    # --- DEĞER VERME KOMUTU (.dver @kullanici miktar) ---
+    # --- DEĞER VERME KOMUTU (!dver @kullanici miktar) ---
     @commands.command()
     @commands.has_role("Değer Yetkilisi")
     async def dver(self, ctx, member: discord.Member, miktar: str):
-        # Isimden mevcut değeri çekmeye çalışır (Örn: A.Becker | 3M€)
         mevcut_match = re.search(r'(\d+)M', member.display_name)
         eski_val = int(mevcut_match.group(1)) if mevcut_match else 1
         
@@ -68,7 +66,7 @@ class DegerSistemi(commands.Cog):
         )
         await ctx.send(embed=embed)
 
-    # --- DEĞER SİLME / DÜŞÜRME KOMUTU (.dsil @kullanici miktar) ---
+    # --- DEĞER SİLME KOMUTU (!dsil @kullanici miktar) ---
     @commands.command()
     @commands.has_role("Değer Yetkilisi")
     async def dsil(self, ctx, member: discord.Member, miktar: str):
@@ -76,7 +74,7 @@ class DegerSistemi(commands.Cog):
         eski_val = int(mevcut_match.group(1)) if mevcut_match else 1
         
         silinen_val = self.miktar_parse(miktar)
-        yeni_val = max(0, eski_val - silinen_val) # Değer 0'ın altına düşmez
+        yeni_val = max(0, eski_val - silinen_val)
 
         embed = discord.Embed(title="🔻 DEĞER SİLİNDİ / DÜŞÜRÜLDÜ", color=discord.Color.red())
         embed.description = (
@@ -87,7 +85,6 @@ class DegerSistemi(commands.Cog):
         )
         await ctx.send(embed=embed)
 
-    # Rol yetkisi olmadığında verilecek hata uyarısı
     @dver.error
     @dsil.error
     async def yetki_error(self, ctx, error):
