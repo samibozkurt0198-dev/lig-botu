@@ -3,29 +3,29 @@ from discord.ext import commands
 import os
 import asyncio
 
-# Bot yetkileri ve prefix ayarı
 intents = discord.Intents.all()
-bot = commands.Bot(command_prefix="!", intents=intents)
+# Görsellerdeki gibi komutların .ant veya .pen ile çalışması için command_prefix='.' yapıldı
+bot = commands.Bot(command_prefix=".", intents=intents)
 
 @bot.event
 async def on_ready():
-    print(f'{bot.user.name} başarıyla aktif oldu!')
+    print(f'{bot.user.name} lig sistemiyle aktif!')
 
-# Yüklenecek modüllerin listesi
 initial_extensions = [
     'cogs.kayit',
     'cogs.kadro',
     'cogs.sirket',
     'cogs.moderasyon',
     'cogs.mac',
-    'cogs.ticket'
+    'cogs.ticket',
+    'cogs.deger'
 ]
 
 async def load_extensions():
     for extension in initial_extensions:
         try:
             await bot.load_extension(extension)
-            print(f'{extension} modülü başarıyla yüklendi.')
+            print(f'{extension} modülü yüklendi.')
         except Exception as e:
             print(f'{extension} yüklenirken hata oluştu: {e}')
 
