@@ -17,7 +17,6 @@ class KapOnayView(discord.ui.View):
             await interaction.response.send_message("❌ Bu onay butonunu sadece transfer olan oyuncu kullanabilir!", ephemeral=True)
             return
 
-        # KAP-Gelenler kanalını bul
         kap_kanal = discord.utils.get(interaction.guild.text_channels, name="kap-gelenler")
         
         embed = discord.Embed(
@@ -81,7 +80,6 @@ class KapFormuModal(discord.ui.Modal, title="📝 Transfer Teklifi Formu"):
             "ek_madde": self.ek_madde.value if self.ek_madde.value else "Yok"
         }
 
-        # 1. Transfermarkt kanalına "Transfer Dedikodusu" gönder
         market_kanal = discord.utils.get(interaction.guild.text_channels, name="transfermarkt")
         dedikodu_embed = discord.Embed(
             title="🚨 TRANSFER DEDİKODUSU / FLAŞ GELİŞME",
@@ -99,7 +97,6 @@ class KapFormuModal(discord.ui.Modal, title="📝 Transfer Teklifi Formu"):
         if market_kanal:
             await market_kanal.send(embed=dedikodu_embed)
 
-        # 2. Onay butonlu mesajı gönder
         view = KapOnayView(taci_yapan=interaction.user, hedef_oyuncu=self.hedef_oyuncu, form_verileri=form_verileri)
         onay_embed = discord.Embed(
             title="📄 Onay Bekleyen Transfer Teklifi",
@@ -145,11 +142,9 @@ class DegerSistemi(commands.Cog):
     # --- KAP BİLDİRİMİ (!kap @Oyuncu) ---
     @commands.command()
     async def kap(self, ctx, member: discord.Member = None):
-        # Sadece Teknik Direktör rolüne sahip olanlar (veya admin/değer yetkilisi) kullanabilir
-        td_rol = discord.utils.get(ctx.author.roles, name="Teknik Direktör") # İsmi farklıysa rol adını buraya yazabilirsin
+        td_rol = discord.utils.get(ctx.author.roles, name="Teknik Direktör")
         has_yetki = ctx.author.guild_permissions.administrator or discord.utils.get(ctx.author.roles, name="Değer Yetkilisi") or td_rol
 
-        # Alternatif olarak kullanıcı adında takım/kulüp rolü kontrolü de yapılabilir, şimdilik TD yetkisi baz alındı.
         if not has_yetki:
             await ctx.send("❌ Bu komutu sadece **Teknik Direktörler** kullanabilir.")
             return
@@ -160,16 +155,13 @@ class DegerSistemi(commands.Cog):
 
         embed = discord.Embed(
             title="📄 Transfer Teklifi Hazırlanıyor",
-            description=(
-                f"{ctx.author.mention}, {member.mention} için transfer teklifi oluşturmak üzeresin.\n\n"
-                f"Devam etmek için aşağıdaki butona bas ve formu doldur."
-            ),
+            description=f"{ctx.author.mention}, {member.mention} için transfer teklifi oluşturmak üzeresin.\n\nDevam etmek için aşağıdaki butona bas.",
             color=0x000000
         )
         view = KapButonView(ctx=ctx, hedef_oyuncu=member)
         await ctx.send(embed=embed, view=view)
 
-    # --- DİĞER KOMUTLAR (Aynı) ---
+    # --- TEKNİK DİREKTÖR KAYIT (!ktd) ---
     @commands.command()
     async def ktd(self, ctx, member: discord.Member = None, role: discord.Role = None, *, yeni_isim: str = None):
         has_role = discord.utils.get(ctx.author.roles, name="Değer Yetkilisi")
@@ -181,21 +173,85 @@ class DegerSistemi(commands.Cog):
             await ctx.send("⚠️ **Kullanım:** `!ktd @oyuncu @Galatasaray Fatih Terim | GS | 0🏆`")
             return
 
+        td_rol = discord.utils.get(ctx.guild.roles, name="Teknik Direktör")
+        if not td_rol:
+            await ctx.send("❌ Sunucuda **Teknik Direktör** isminde bir rol bulunamadı! Lütfen bu isimde bir rol oluşturun.")
+            return
+
         try:
-            await member.edit(nick=yeni_isim)
-            await member.add_roles(role)
+            # Tüm rolleri al, sadece yeni verilecekleri ekle
+            temel_roller = [r for r in member.roles if r.managed or r.is_integration()] # Bot rolleri kalabilir
+            await member.edit(nick=yeni_isim, roles=temel_roller)
+            await member.add_roles(td_rol, role)
             
             embed = discord.Embed(color=0x000000)
             embed.description = (
                 f"✅ **TEKNİK DİREKTÖR KAYDI TAMAMLANDI**\n\n"
                 f"👤 **TD:** {member.mention}\n"
-                f"🛡️ **Verilen Rol:** {role.mention}\n"
+                f"🛡️ **Verilen Roller:** {td_rol.mention}, {role.mention}\n"
                 f"📝 **Yeni İsim:** `{yeni_isim}`"
             )
             await ctx.send(embed=embed)
         except Exception as e:
-            await ctx.send("❌ Kullanıcı ismi veya rolü güncellenemedi. Botun rol yetkilerini kontrol edin.")
+            await ctx.send("❌ İşlem gerçekleştirilemedi. Botun rolü, verilecek rollerden ve kullanıcıdan üst sırada olmalıdır.")
 
+    # --- FUTBOLCU KAYIT (!kayit) ---
+    @commands.command(aliases=["kayıt"])
+    async def kayit(self, ctx, member: discord.Member = None, *, yeni_isim: str = None):
+        has_role = discord.utils.get(ctx.author.roles, name="Değer Yetkilisi")
+        if not (ctx.author.guild_permissions.administrator or has_role):
+            await ctx.send("❌ Bu komutu sadece **Değer Yetkilisi** kullanabilir.")
+            return
+
+        if not member or not yeni_isim:
+            await ctx.send("⚠️ Kullanım: `!kayit @kullanıcı V.Osimhen | 🇳🇬 | SNT | 1M`")
+            return
+
+        fut_rol = discord.utils.get(ctx.guild.roles, name="Futbolcu")
+        if not fut_rol:
+            await ctx.send("❌ Sunucuda **Futbolcu** isminde bir rol bulunamadı! Lütfen bu isimde bir rol oluşturun.")
+            return
+
+        try:
+            temel_roller = [r for r in member.roles if r.managed or r.is_integration()]
+            await member.edit(nick=yeni_isim, roles=temel_roller)
+            await member.add_roles(fut_rol)
+
+            embed = discord.Embed(color=0x000000)
+            embed.description = f"✅ {member.mention} başarıyla futbolcu olarak kaydedildi!\n**Rol:** {fut_rol.mention}\n**Yeni İsim:** `{yeni_isim}`"
+            await ctx.send(embed=embed)
+        except:
+            await ctx.send("❌ Kullanıcı kaydedilemedi. Botun rol yetkilerini kontrol edin.")
+
+    # --- KALECİ KAYIT (!kk) ---
+    @commands.command()
+    async def kk(self, ctx, member: discord.Member = None, *, yeni_isim: str = None):
+        has_role = discord.utils.get(ctx.author.roles, name="Değer Yetkilisi")
+        if not (ctx.author.guild_permissions.administrator or has_role):
+            await ctx.send("❌ Bu komutu sadece **Değer Yetkilisi** kullanabilir.")
+            return
+
+        if not member or not yeni_isim:
+            await ctx.send("⚠️ Kullanım: `!kk @kullanıcı F.Muslera | 🇺🇾 | KLÇ | 1M`")
+            return
+
+        kaleci_rol = discord.utils.get(ctx.guild.roles, name="Kaleci")
+        if not kaleci_rol:
+            await ctx.send("❌ Sunucuda **Kaleci** isminde bir rol bulunamadı! Lütfen bu isimde bir rol oluşturun.")
+            return
+
+        try:
+            temel_roller = [r for r in member.roles if r.managed or r.is_integration()]
+            await member.edit(nick=yeni_isim, roles=temel_roller)
+            await member.add_roles(kaleci_rol)
+
+            embed = discord.Embed(color=0x000000)
+            embed.description = f"✅ {member.mention} başarıyla kaleci olarak kaydedildi!\n**Rol:** {kaleci_rol.mention}\n**Yeni İsim:** `{yeni_isim}`"
+            await ctx.send(embed=embed)
+        except:
+            await ctx.send("❌ Kullanıcı kaydedilemedi. Botun rol yetkilerini kontrol edin.")
+
+    # --- DİĞER KOMUTLAR ---
     @commands.command(aliases=["tw"])
     async def tweet(self, ctx, *, icerik: str = None):
         if "twitter" not in ctx.channel.name.lower():
@@ -241,23 +297,6 @@ class DegerSistemi(commands.Cog):
         else:
             embed.description = f"⚽ **PENALTI**\n\n🎯 Vuruş yapıldı!\n🧤 Kaleci kurtardı!\n\n❌ **PENALTI KAÇTI!**"
         await ctx.send(embed=embed)
-
-    @commands.command(aliases=["kayıt"])
-    async def kayit(self, ctx, member: discord.Member = None, *, yeni_isim: str = None):
-        has_role = discord.utils.get(ctx.author.roles, name="Değer Yetkilisi")
-        if not (ctx.author.guild_permissions.administrator or has_role):
-            await ctx.send("❌ Bu komutu sadece **Değer Yetkilisi** kullanabilir.")
-            return
-        if not member or not yeni_isim:
-            await ctx.send("⚠️ Kullanım: `!kayit @kullanıcı V.Osimhen | 🇳🇬 | SNT | 1M`")
-            return
-        try:
-            await member.edit(nick=yeni_isim)
-            embed = discord.Embed(color=0x000000)
-            embed.description = f"✅ {member.mention} başarıyla kaydedildi!\n**Yeni İsim:** `{yeni_isim}`"
-            await ctx.send(embed=embed)
-        except:
-            await ctx.send("❌ Kullanıcının ismi değiştirilemedi.")
 
     @commands.command()
     async def dver(self, ctx, member: discord.Member = None, miktar: str = None):
