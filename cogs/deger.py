@@ -12,16 +12,16 @@ class DegerSistemi(commands.Cog):
         sayi = re.findall(r'\d+', miktar_str)
         return int(sayi[0]) if sayi else 0
 
-    # --- TWEET KOMUTU (!tweet / .tweet mesaj) ---
+    # --- TWEET KOMUTU (!tweet / !tw mesaj) ---
     @commands.command(aliases=["tw"])
     async def tweet(self, ctx, *, icerik: str = None):
         if not icerik:
-            await ctx.send("⚠️ Kullanım: `.tweet Atılacak tweet içeriği`")
+            await ctx.send("⚠️ Kullanım: `!tweet Atılacak tweet içeriği`")
             return
 
         embed = discord.Embed(
             description=f"{icerik}",
-            color=0x000000 # Siyah renk
+            color=0x000000
         )
         embed.set_author(
             name=f"{ctx.author.display_name} (@{ctx.author.name})",
@@ -29,16 +29,16 @@ class DegerSistemi(commands.Cog):
         )
         embed.set_footer(text="🐦 Twitter / X for League", icon_url="https://abs.twimg.com/icons/apple-touch-icon-192x192.png")
         
-        await ctx.message.delete() # Komut mesajını temizler
+        await ctx.message.delete()
         await ctx.send(embed=embed)
 
-    # --- ANTRENMAN (!ant / .ant) ---
+    # --- ANTRENMAN (!ant) ---
     @commands.command(aliases=["antrenman"])
     async def ant(self, ctx):
         user_id = ctx.author.id
         mevcut = self.antrenman_sayac.get(user_id, 0) + 1
         
-        embed = discord.Embed(color=0x000000) # Siyah kutu
+        embed = discord.Embed(color=0x000000)
         if mevcut >= 10:
             self.antrenman_sayac[user_id] = 0
             embed.description = (
@@ -55,7 +55,7 @@ class DegerSistemi(commands.Cog):
             )
         await ctx.send(embed=embed)
 
-    # --- PENALTI (!pen / .pen) ---
+    # --- PENALTI (!pen) ---
     @commands.command(aliases=["penalti"])
     async def pen(self, ctx):
         gol_mu = random.choice([True, False])
@@ -76,7 +76,7 @@ class DegerSistemi(commands.Cog):
             )
         await ctx.send(embed=embed)
 
-    # --- DEĞER VERME (!dver / .dver) ---
+    # --- DEĞER VERME (!dver) ---
     @commands.command()
     async def dver(self, ctx, member: discord.Member = None, miktar: str = None):
         has_role = discord.utils.get(ctx.author.roles, name="Değer Yetkilisi")
@@ -85,7 +85,7 @@ class DegerSistemi(commands.Cog):
             return
 
         if not member or not miktar:
-            await ctx.send("⚠️ Doğru Kullanım: `.dver @Kullanıcı 5M`")
+            await ctx.send("⚠️ Doğru Kullanım: `!dver @Kullanıcı 5M`")
             return
 
         mevcut_match = re.search(r'(\d+)M', member.display_name)
@@ -104,7 +104,7 @@ class DegerSistemi(commands.Cog):
         )
         await ctx.send(embed=embed)
 
-    # --- DEĞER SİLME (!dsil / .dsil) ---
+    # --- DEĞER SİLME (!dsil) ---
     @commands.command()
     async def dsil(self, ctx, member: discord.Member = None, miktar: str = None):
         has_role = discord.utils.get(ctx.author.roles, name="Değer Yetkilisi")
@@ -113,7 +113,7 @@ class DegerSistemi(commands.Cog):
             return
 
         if not member or not miktar:
-            await ctx.send("⚠️ Doğru Kullanım: `.dsil @Kullanıcı 5M`")
+            await ctx.send("⚠️ Doğru Kullanım: `!dsil @Kullanıcı 5M`")
             return
 
         mevcut_match = re.search(r'(\d+)M', member.display_name)
@@ -134,4 +134,3 @@ class DegerSistemi(commands.Cog):
 
 async def setup(bot):
     await bot.add_cog(DegerSistemi(bot))
-
