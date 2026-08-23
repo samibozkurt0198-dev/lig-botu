@@ -17,6 +17,24 @@ class KapOnayView(discord.ui.View):
             await interaction.response.send_message("❌ Bu onay butonunu sadece transfer olan oyuncu kullanabilir!", ephemeral=True)
             return
 
+        # --- OTOMATİK ROL VERME İŞLEMİ ---
+        takim_adi_girilen = self.form['takim'].strip()
+        # Sunucuda formda yazılan takım ismiyle eşleşen bir rol aranıyor
+        takim_rolu = discord.utils.find(
+            lambda r: r.name.lower() in takim_adi_girilen.lower() or takim_adi_girilen.lower() in r.name.lower(),
+            interaction.guild.roles
+        )
+
+        rol_mesaji = ""
+        if takim_rolu:
+            try:
+                await self.hedef_oyuncu.add_roles(takim_rolu)
+                rol_mesaji = f"\n🎭 **Atanan Takım Rolü:** {takim_rolu.mention}"
+            except Exception as e:
+                rol_mesaji = f"\n⚠️ *Rol verilmeye çalışılırken yetki hatası oluştu.*"
+        else:
+            rol_mesaji = f"\n⚠️ *'{takim_adi_girilen}' isminde uygun bir sunucu rolü bulunamadı.*"
+
         kap_kanal = discord.utils.get(interaction.guild.text_channels, name="kap-gelenler")
         
         embed = discord.Embed(
@@ -30,14 +48,14 @@ class KapOnayView(discord.ui.View):
             f"💰 **Maaş:** {self.form['maas']}\n"
             f"✍️ **İmza Parası:** {self.form['imza_parasi']}\n"
             f"💵 **Bonservis:** {self.form['bonservis']}\n"
-            f"📌 **Ek Madde:** {self.form['ek_madde']}\n\n"
-            f"🟢 **Durum:** *Transfer Oyuncu Tarafından Onaylandı ve Tamamlandı!*"
+            f"📌 **Ek Madde:** {self.form['ek_madde']}{rol_mesaji}\n\n"
+            f"🟢 **Durum:** *Transfer Oyuncu Tarafından Onaylandı ve Rol Tanımlandı!*"
         )
         embed.set_footer(text="Tendo League Resmi KAP Bildirimi")
 
         if kap_kanal:
             await kap_kanal.send(content=f"🚨 {self.hedef_oyuncu.mention} resmi olarak imzayı attı!", embed=embed)
-            await interaction.response.send_message("✅ Transfer başarıyla onaylandı ve `#kap-gelenler` kanalına gönderildi!", ephemeral=True)
+            await interaction.response.send_message("✅ Transfer başarıyla onaylandı, rolün verildi ve `#kap-gelenler` kanalına gönderildi!", ephemeral=True)
         else:
             await interaction.response.send_message(embed=embed)
             await interaction.followup.send("⚠️ `kap-gelenler` adında bir kanal bulunamadığı için mesaj bu kanala atıldı.", ephemeral=True)
