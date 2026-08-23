@@ -3,6 +3,75 @@ from discord.ext import commands
 import random
 import re
 
+# --- KAP FORMU MODAL ---
+class KapFormuModal(discord.ui.Modal, title="📝 Transfer Teklifi Formu"):
+    takim = discord.ui.TextInput(
+        label="Takım (Geldiği / Gittiği)",
+        placeholder="Örn: Barcelona / Real Madrid",
+        required=True
+    )
+    maas = discord.ui.TextInput(
+        label="Maaş",
+        placeholder="Örn: 500k / hafta",
+        required=True
+    )
+    imza_parasi = discord.ui.TextInput(
+        label="İmza Parası",
+        placeholder="Örn: 1m",
+        required=True
+    )
+    bonservis = discord.ui.TextInput(
+        label="Bonservis",
+        placeholder="Örn: 5m",
+        required=True
+    )
+    ek_madde = discord.ui.TextInput(
+        label="Ek Madde (opsiyonel)",
+        placeholder="Opsiyonel maddeler veya detaylar...",
+        style=discord.TextStyle.paragraph,
+        required=False
+    )
+
+    def __init__(self, hedef_oyuncu: discord.Member):
+        super().__init__()
+        self.hedef_oyuncu = hedef_oyuncu
+
+    async def on_submit(self, interaction: discord.Interaction):
+        embed = discord.Embed(
+            title="⚽ TRANSFER KAP BİLDİRİMİ",
+            color=0x000000
+        )
+        embed.description = (
+            f"👤 **Transfer Edilen Oyuncu:** {self.hedef_oyuncu.mention}\n"
+            f"👔 **İşlemi Yapan TD:** {interaction.user.mention}\n\n"
+            f"🏛️ **Takım (Geldiği / Gittiği):** {self.takim.value}\n"
+            f"💰 **Maaş:** {self.maas.value}\n"
+            f"✍️ **İmza Parası:** {self.imza_parasi.value}\n"
+            f"💵 **Bonservis:** {self.bonservis.value}\n"
+            f"📌 **Ek Madde:** {self.ek_madde.value if self.ek_madde.value else 'Yok'}"
+        )
+        embed.set_footer(text="Tendo League Resmi KAP Bildirimi")
+        await interaction.response.send_message(embed=embed)
+
+
+# --- KAP BUTONU ---
+class KapButonView(discord.ui.View):
+    def __init__(self, sahibi: discord.Member, hedef_oyuncu: discord.Member):
+        super().__init__(timeout=120)
+        self.sahibi = sahibi
+        self.hedef_oyuncu = hedef_oyuncu
+
+    @discord.ui.button(label="📝 Teklif Formunu Doldur", style=discord.ButtonStyle.primary)
+    async def formu_ac(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user.id != self.sahibi.id:
+            await interaction.response.send_message("❌ Bu butonu sadece komutu yazan teknik direktör kullanabilir!", ephemeral=True)
+            return
+
+        modal = KapFormuModal(hedef_oyuncu=self.hedef_oyuncu)
+        await interaction.response.send_modal(modal)
+
+
+# --- COG SINIFI ---
 class DegerSistemi(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
@@ -11,6 +80,52 @@ class DegerSistemi(commands.Cog):
     def miktar_parse(self, miktar_str: str) -> int:
         sayi = re.findall(r'\d+', miktar_str)
         return int(sayi[0]) if sayi else 0
+
+    # --- KAP BİLDİRİMİ (!kap @Oyuncu) ---
+    @commands.command()
+    async def kap(self, ctx, member: discord.Member = None):
+        if not member:
+            await ctx.send("⚠️ **Kullanım:** `!kap @oyuncu`")
+            return
+
+        embed = discord.Embed(
+            title="📄 Transfer Teklifi Hazırlanıyor",
+            description=(
+                f"{ctx.author.mention}, {member.mention} için transfer teklifi oluşturmak üzeresin.\n\n"
+                f"Devam etmek için aşağıdaki butona bas ve formu doldur.\n\n"
+                f"*(Bu butonu sadece sen kullanabilirsin.)*"
+            ),
+            color=0x000000
+        )
+        view = KapButonView(sahibi=ctx.author, hedef_oyuncu=member)
+        await ctx.send(embed=embed, view=view)
+
+    # --- TEKNİK DİREKTÖR KAYIT (!ktd @kullanıcı @TakımRolü Yeniİsim) ---
+    @commands.command()
+    async def ktd(self, ctx, member: discord.Member = None, role: discord.Role = None, *, yeni_isim: str = None):
+        has_role = discord.utils.get(ctx.author.roles, name="Değer Yetkilisi")
+        if not (ctx.author.guild_permissions.administrator or has_role):
+            await ctx.send("❌ Bu komutu sadece **Değer Yetkilisi** kullanabilir.")
+            return
+
+        if not member or not role or not yeni_isim:
+            await ctx.send("⚠️ **Kullanım:** `!ktd @oyuncu @Galatasaray Fatih Terim | GS | 0🏆`")
+            return
+
+        try:
+            await member.edit(nick=yeni_isim)
+            await member.add_roles(role)
+            
+            embed = discord.Embed(color=0x000000)
+            embed.description = (
+                f"✅ **TEKNİK DİREKTÖR KAYDI TAMAMLANDI**\n\n"
+                f"👤 **TD:** {member.mention}\n"
+                f"🛡️ **Verilen Rol:** {role.mention}\n"
+                f"📝 **Yeni İsim:** `{yeni_isim}`"
+            )
+            await ctx.send(embed=embed)
+        except Exception as e:
+            await ctx.send("❌ Kullanıcı ismi veya rolü güncellenemedi. Botun rol yetkilerini kontrol edin.")
 
     # --- TWEET KOMUTU (!tweet) ---
     @commands.command(aliases=["tw"])
@@ -78,11 +193,12 @@ class DegerSistemi(commands.Cog):
             
         await ctx.send(embed=embed)
 
-    # --- KAYIT (!kayit @kullanıcı Format) ---
+    # --- KAYIT (!kayit) ---
     @commands.command(aliases=["kayıt"])
     async def kayit(self, ctx, member: discord.Member = None, *, yeni_isim: str = None):
-        if not (ctx.author.guild_permissions.administrator or discord.utils.get(ctx.author.roles, name="Değer Yetkilisi")):
-            await ctx.send("❌ Bu komutu sadece yetkililer kullanabilir.")
+        has_role = discord.utils.get(ctx.author.roles, name="Değer Yetkilisi")
+        if not (ctx.author.guild_permissions.administrator or has_role):
+            await ctx.send("❌ Bu komutu sadece **Değer Yetkilisi** kullanabilir.")
             return
 
         if not member or not yeni_isim:
@@ -115,7 +231,6 @@ class DegerSistemi(commands.Cog):
         eklenen_val = self.miktar_parse(miktar)
         yeni_val = eski_val + eklenen_val
 
-        # İsmi otomatik değiştirme işlemi
         yeni_nick = re.sub(r'\b\d+M\b', f"{yeni_val}M", member.display_name)
         try:
             await member.edit(nick=yeni_nick)
@@ -150,7 +265,6 @@ class DegerSistemi(commands.Cog):
         silinen_val = self.miktar_parse(miktar)
         yeni_val = max(0, eski_val - silinen_val)
 
-        # İsmi otomatik değiştirme işlemi
         yeni_nick = re.sub(r'\b\d+M\b', f"{yeni_val}M", member.display_name)
         try:
             await member.edit(nick=yeni_nick)
@@ -167,37 +281,6 @@ class DegerSistemi(commands.Cog):
         )
         await ctx.send(embed=embed)
 
-    # --- KAP BİLDİRİMİ (!kap) ---
-    @commands.command()
-    async def kap(self, ctx, *, icerik: str = None):
-        if not icerik:
-            ornek = (
-                "⚠️ **Kullanım Şekli:**\n"
-                "`!kap` yazıp altına şu formatta bilgileri doldurun:\n\n"
-                "Oyuncu Adı: Victor Osimhen\n"
-                "Mevki: SNT\n"
-                "Eski Kulüp: Napoli\n"
-                "Yeni Kulüp: Galatasaray\n"
-                "Piyasa Değeri: 75M€\n"
-                "Maaş: 6M€\n"
-                "Sözleşme Süresi: 1 Yıl\n"
-                "Forma Numarası: 45\n"
-                "Bonservis: 10M€\n"
-                "Şartlar: Zorunlu Satın Alma\n"
-                "Özel Maddeler: - \n"
-                "Durum: Transferli"
-            )
-            await ctx.send(ornek)
-            return
-
-        embed = discord.Embed(
-            title="⚽ OYUNCU KAYIT FORMU (KAP)",
-            description=f"```\n{icerik}\n```",
-            color=0x000000
-        )
-        embed.set_footer(text="Tendo League Official Transfer KAP")
-        await ctx.message.delete()
-        await ctx.send(embed=embed)
-
 async def setup(bot):
     await bot.add_cog(DegerSistemi(bot))
+
