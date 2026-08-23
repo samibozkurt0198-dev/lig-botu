@@ -4,11 +4,13 @@ import os
 import asyncio
 
 intents = discord.Intents.all()
-bot = commands.Bot(command_prefix="!", intents=intents)
+
+# Komut prefix'i nokta (.) olarak ayarlandı
+bot = commands.Bot(command_prefix=".", intents=intents)
 
 @bot.event
 async def on_ready():
-    print(f'{bot.user.name} lig sistemiyle aktif!')
+    print(f'{bot.user.name} lig sistemiyle aktif! Tüm komutlar "." ile çalışıyor.')
 
 initial_extensions = [
     'cogs.kayit',
