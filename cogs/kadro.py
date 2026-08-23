@@ -15,7 +15,7 @@ class Kadro(commands.Cog):
             return
 
         if not dizilis or not taktik:
-            await ctx.send("⚠️ **Kullanım:** `.kadro <Diziliş> <Taktik> [Görsel_URL]`\nÖrnek: `.kadro 4-3-3 "Hücum / Yüksek Pres" https://image-link.com/kadro.png`")
+            await ctx.send("⚠️ **Kullanım:** `.kadro <Diziliş> <Taktik> [Görsel_URL]`\nÖrnek: `.kadro 4-3-3 'Hücum / Yüksek Pres' https://image-link.com/kadro.png`")
             return
 
         embed = discord.Embed(
