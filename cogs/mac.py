@@ -74,61 +74,62 @@ class MacSistemi(commands.Cog):
             color=0x000000
         )
         mac_mesaji = await ctx.send(embed=baslangic_embed)
-        await asyncio.sleep(3)
+        await asyncio.sleep(2)
 
-        # DAKİKA DAKİKA ANLATIM AKIŞI
-        o1 = random.choice(t1_kadro)
-        o2 = random.choice(t2_kadro)
-        o1_asist = random.choice([o for o in t1_kadro if o != o1])
+        # 1'DEN 90'A KADAR CANLI DAKİKA AKIŞI
+        olay_dakikalari = sorted(random.sample(range(5, 88), 5)) # Maç içi 5 kritik pozisyon üretir
 
-        anlatimlar = [
-            {
-                "dakika": 28,
-                "baslik": f"28' {takim1_adi} {skor1}-{skor2} {takim2_adi}",
-                "detay": f"**{o1['isim']}** | {o1['bayrak']} | **{o1['mevki']} | {o1['deger']}** dönüp kaleye baktı...",
-                "olay": f"💥 **GOL!** Uzaklardan harika bir füze çıkardı ve top ağlarda!",
-                "skor_artisi": (1, 0),
-                "golcu": o1,
-                "bar": f"📍 **Pozisyon**\n🛡️ {takim1_adi} 🟩🟩🟩🟩⬜⬜⬜ 28m 🎲"
-            },
-            {
-                "dakika": 64,
-                "baslik": f"64' {takim1_adi} {skor1+1}-{skor2} {takim2_adi}",
-                "detay": f"**{o1['isim']}** | {o1['bayrak']} | **{o1['mevki']} | {o1['deger']}** ← A **{o1_asist['isim']}** | {o1_asist['bayrak']} | **{o1_asist['mevki']} | {o1_asist['deger']}**",
-                "olay": "🔥 **İÇERİDEEE!!!** Muazzam paslaşma ve şık bitiriş!",
-                "skor_artisi": (1, 0),
-                "golcu": o1,
-                "asistci": o1_asist,
-                "bar": f"📍 **Pozisyon**\n🛡️ {takim1_adi} 🟩🟩🟩🟩🟩🟩⬜ 17m 🎲"
-            },
-            {
-                "dakika": 89,
-                "baslik": f"89' {takim1_adi} {skor1+2}-{skor2} {takim2_adi}",
-                "detay": f"**{o2['isim']}** | {o2['bayrak']} | **{o2['mevki']} | {o2['deger']}** ceza sahası dışından sert vurdu!",
-                "olay": "🧤 **ÇELDİİİİ!** Kaleci topu son anda parmaklarının ucuyla çeldi!",
-                "skor_artisi": (0, 0),
-                "golcu": None,
-                "bar": f"📍 **Pozisyon**\n🛡️ {takim2_adi} 🟩🟩🟩🟩⬜⬜⬜ 27m 🎲"
-            }
-        ]
+        for dk in range(1, 91):
+            if dk in olay_dakikalari:
+                takim = random.choice([1, 2])
+                gol_mu = random.choice([True, False])
 
-        for an in anlatimlar:
-            if an["golcu"]:
-                an["golcu"]["gol"] += an["skor_artisi"][0]
-            if "asistci" in an and an["asistci"]:
-                an["asistci"]["asist"] += 1
+                if takim == 1:
+                    o = random.choice(t1_kadro)
+                    asistci = random.choice([x for x in t1_kadro if x != o])
+                    if gol_mu:
+                        skor1 += 1
+                        o["gol"] += 1
+                        asistci["asist"] += 1
+                        detay = f"**{o['isim']}** | {o['bayrak']} | **{o['mevki']} | {o['deger']}** ← A **{asistci['isim']}** | {asistci['bayrak']} | **{asistci['mevki']} | {asistci['deger']}**"
+                        olay = "💥 **GOL!** Harika organizasyon ve top ağlarda!"
+                    else:
+                        detay = f"**{o['isim']}** | {o['bayrak']} | **{o['mevki']} | {o['deger']}** ceza sahası dışından sert vurdu!"
+                        olay = "🧤 **ÇELDİİİİ!** Kaleci topu son anda çeldi!"
+                    bar = f"📍 **Pozisyon**\n🛡️ {takim1_adi} 🟩🟩🟩🟩🟩⬜⬜ {random.randint(15, 30)}m 🎲"
+                else:
+                    o = random.choice(t2_kadro)
+                    asistci = random.choice([x for x in t2_kadro if x != o])
+                    if gol_mu:
+                        skor2 += 1
+                        o["gol"] += 1
+                        asistci["asist"] += 1
+                        detay = f"**{o['isim']}** | {o['bayrak']} | **{o['mevki']} | {o['deger']}** ← A **{asistci['isim']}** | {asistci['bayrak']} | **{asistci['mevki']} | {asistci['deger']}**"
+                        olay = "💥 **GOL!** Şık bitirişle top ağlarla buluştu!"
+                    else:
+                        detay = f"**{o['isim']}** | {o['bayrak']} | **{o['mevki']} | {o['deger']}** dönüp kaleye baktı..."
+                        olay = "🧤 **KURTARIŞ!** Kaleci çizgi üzerinde kontrol etti!"
+                    bar = f"📍 **Pozisyon**\n🛡️ {takim2_adi} 🟩🟩🟩🟩⬜⬜⬜ {random.randint(15, 30)}m 🎲"
 
-            skor1 += an["skor_artisi"][0]
-            skor2 += an["skor_artisi"][1]
-            
-            embed = discord.Embed(
-                title=f"{an['baslik']}",
-                description=f"{an['detay']}\n\n**{an['olay']}**\n\n{an['bar']}",
-                color=0x000000
-            )
-            embed.set_footer(text=f"{takim1_adi} {skor1} - {skor2} {takim2_adi}")
-            await mac_mesaji.edit(embed=embed)
-            await asyncio.sleep(4)
+                embed = discord.Embed(
+                    title=f"{dk}' {takim1_adi} {skor1}-{skor2} {takim2_adi}",
+                    description=f"{detay}\n\n**{olay}**\n\n{bar}",
+                    color=0x000000
+                )
+                embed.set_footer(text=f"{takim1_adi} {skor1} - {skor2} {takim2_adi}")
+                await mac_mesaji.edit(embed=embed)
+                await asyncio.sleep(3)
+            else:
+                # Aradaki normal dakikaların hızlı akışı
+                if dk % 15 == 0 or dk == 90:
+                    embed = discord.Embed(
+                        title=f"{dk}' {takim1_adi} {skor1}-{skor2} {takim2_adi}",
+                        description=f"🔄 Top orta saha mücadelesiyle devam ediyor...",
+                        color=0x000000
+                    )
+                    embed.set_footer(text=f"{takim1_adi} {skor1} - {skor2} {takim2_adi}")
+                    await mac_mesaji.edit(embed=embed)
+                    await asyncio.sleep(1)
 
         # MAÇ SONU İSTATİSTİKLERİ
         kazanan = takim1_adi if skor1 > skor2 else (takim2_adi if skor2 > skor1 else "Berabere")
@@ -138,8 +139,8 @@ class MacSistemi(commands.Cog):
                         f"🤝 **Lig Maçı** — Sonuçlar kaydedildi.\n\n"
                         f"📊 **Maç İstatistikleri**\n"
                         f"⚡ **Topla Oynama %**\n`52%` 🟦🟦🟦🟦🟥🟥🟥🟥🟥 `48%`\n"
-                        f"💥 **Şut**\n` 8 ` 🟦🟦🟦🟦🟥🟥🟥🟥🟥 ` 5 `\n"
-                        f"🎯 **İsabetli Şut**\n` 5 ` 🟦🟦🟦🟦🟥🟥🟥🟥🟥 ` 3 `\n"
+                        f"💥 **Şut**\n` {skor1 + 4} ` 🟦🟦🟦🟦🟥🟥🟥🟥🟥 ` {skor2 + 3} `\n"
+                        f"🎯 **İsabetli Şut**\n` {skor1 + 2} ` 🟦🟦🟦🟦🟥🟥🟥🟥🟥 ` {skor2 + 1} `\n"
                         f"🚩 **Korner**\n` 3 ` 🟦🟦🟦🟦🟥🟥🟥🟥🟥 ` 2 `\n"
                         f"⚠️ **Faul**\n` 7 ` 🟦🟦🟦🟦🟥🟥🟥🟥🟥 ` 9 `\n",
             color=0x000000
@@ -198,3 +199,4 @@ class MacSistemi(commands.Cog):
 
 async def setup(bot):
     await bot.add_cog(MacSistemi(bot))
+
