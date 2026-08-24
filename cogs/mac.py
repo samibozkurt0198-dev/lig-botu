@@ -30,7 +30,6 @@ class MacSistemi(commands.Cog):
         if "@" in temiz_isim:
             temiz_isim = temiz_isim.replace("@", "")
 
-        # Oyuncu küresel istatistik takibi
         if member.id not in self.istatistikler:
             self.istatistikler[member.id] = {
                 "isim": temiz_isim[:14],
@@ -62,17 +61,17 @@ class MacSistemi(commands.Cog):
     async def mac_yardim(self, ctx):
         embed = discord.Embed(
             title="⚽ TENDO LEAGUE — MAÇ & YÖNETİM BOTU",
-            description="🎡 Gelişmiş takım, fikstür, ekonomi, kart/sakatlık ve lig simülasyonu.",
+            description="🎡 Gelişmiş takım, fikstür, kart/sakatlık ve lig simülasyonu.",
             color=0x2b2d31
         )
         embed.add_field(
-            name="🏟️ TAKIM & FİKSTÜR",
-            value="`.takımkur Milan` | `.takımkadro Milan`\n`.fikstüroluştur` | `.fikstür` | `.haftayıoynat`",
+            name="🏟️ TAKIM & OYUNCU YÖNETİMİ",
+            value="`.takımkur Milan` | `.takımkadro Milan`\n`.oyuncu ekle Milan @Oyuncu` (Yetkili)\n`.oyuncu çıkar Milan @Oyuncu` (Yetkili)",
             inline=False
         )
         embed.add_field(
-            name="💰 EKONOMİ & TRANSFER",
-            value="`.bütçe Milan` | `.bütçeekle Milan 50`\n`.transfer Milan Inter @Oyuncu 20`",
+            name="📅 FİKSTÜR SİSTEMİ",
+            value="`.fikstüroluştur` | `.fikstür` | `.haftayıoynat`",
             inline=False
         )
         embed.add_field(
@@ -80,7 +79,7 @@ class MacSistemi(commands.Cog):
             value="`.puan` (Puan Durumu)\n`.krallık` (Gol ve Asist Krallığı)",
             inline=False
         )
-        embed.set_footer(text="Tendo League • Match Engine V3.0 Complete")
+        embed.set_footer(text="Tendo League • Match Engine V3.1")
         await ctx.send(embed=embed)
 
     @commands.command(name="takımkur", aliases=["takimkur"])
@@ -100,19 +99,23 @@ class MacSistemi(commands.Cog):
         self.takimlar[key] = {
             "orj_ad": takim_adi,
             "oyuncular": [],
-            "butce": 100.0,  # Varsayılan 100M bütçe
             "om": 0, "g": 0, "b": 0, "m": 0,
             "ag": 0, "yg": 0, "av": 0, "puan": 0
         }
-        await ctx.send(f"✅ **{takim_adi}** takımı kuruldu! Başlangıç Bütçesi: **100M**")
+        await ctx.send(f"✅ **{takim_adi}** takımı başarıyla oluşturuldu!")
 
-    @commands.command(name="takımoyuncuekle", aliases=["takimoyuncuekle"])
-    async def oyuncu_ekle(self, ctx, takim_adi: str = None, member: discord.Member = None):
+    # OYUNCU KOMUT GRUBU (.oyuncu ekle <takım> @oyuncu)
+    @commands.group(name="oyuncu", invoke_without_command=True)
+    async def oyuncu_group(self, ctx):
+        await ctx.send("⚠️ Kullanım: `.oyuncu ekle <Takım> @Oyuncu` veya `.oyuncu çıkar <Takım> @Oyuncu`")
+
+    @oyuncu_group.command(name="ekle")
+    async def oyuncu_ekle_sub(self, ctx, takim_adi: str = None, member: discord.Member = None):
         if not ctx.author.guild_permissions.administrator:
             await ctx.send("❌ Bu komutu sadece yöneticiler kullanabilir.")
             return
         if not takim_adi or not member:
-            await ctx.send("⚠️ Kullanım: `.takımoyuncuekle <TakımAdı> @Oyuncu`")
+            await ctx.send("⚠️ Kullanım: `.oyuncu ekle <TakımAdı> @Oyuncu`")
             return
 
         key = takim_adi.lower()
@@ -120,9 +123,57 @@ class MacSistemi(commands.Cog):
             await ctx.send(f"❌ **{takim_adi}** takımı bulunamadı.")
             return
 
+        # Oyuncu başka takımda var mı kontrolü
+        for t_key, t_val in self.takimlar.items():
+            for o in t_val["oyuncular"]:
+                if o["member"].id == member.id:
+                    t_val["oyuncular"].remove(o)
+                    break
+
         o_bilgi = self.nickname_oku(member)
         self.takimlar[key]["oyuncular"].append(o_bilgi)
-        await ctx.send(f"✅ **{o_bilgi['isim']}** başarıyla **{self.takimlar[key]['orj_ad']}** kadrosuna eklendi!")
+
+        embed = discord.Embed(
+            description=f"✅ **{o_bilgi['isim']}** takıma eklendi!\n\n"
+                        f"👤 **Oyuncu:** {o_bilgi['isim']}\n"
+                        f"🌐 **Ülke:** {o_bilgi['bayrak']}\n"
+                        f"📍 **Pozisyon:** {o_bilgi['mevki']}\n"
+                        f"💰 **Piyasa Değeri:** {o_bilgi['deger_str']}\n\n"
+                        f"🏟️ **Takım:** {self.takimlar[key]['orj_ad']}\n"
+                        f"👥 **Kadro:** {len(self.takimlar[key]['oyuncular'])} kişi",
+            color=0x2b2d31
+        )
+        await ctx.send(embed=embed)
+
+    @oyuncu_group.command(name="çıkar", aliases=["cikar"])
+    async def oyuncu_cikar_sub(self, ctx, takim_adi: str = None, member: discord.Member = None):
+        if not ctx.author.guild_permissions.administrator:
+            await ctx.send("❌ Bu komutu sadece yöneticiler kullanabilir.")
+            return
+        if not takim_adi or not member:
+            await ctx.send("⚠️ Kullanım: `.oyuncu çıkar <TakımAdı> @Oyuncu`")
+            return
+
+        key = takim_adi.lower()
+        if key not in self.takimlar:
+            await ctx.send(f"❌ **{takim_adi}** takımı bulunamadı.")
+            return
+
+        kadro = self.takimlar[key]["oyuncular"]
+        yeni_kadro = [o for o in kadro if o["member"].id != member.id]
+        
+        if len(kadro) == len(yeni_kadro):
+            await ctx.send(f"❌ Bu oyuncu **{self.takimlar[key]['orj_ad']}** kadrosunda yok.")
+            return
+
+        self.takimlar[key]["oyuncular"] = yeni_kadro
+        o_bilgi = self.nickname_oku(member)
+        await ctx.send(f"✅ **{o_bilgi['isim']}** oyuncusu **{self.takimlar[key]['orj_ad']}** takımından çıkarıldı.")
+
+    # Alternatif Doğrudan Komut (.oyuncuekle)
+    @commands.command(name="oyuncuekle")
+    async def oyuncu_ekle_direkt(self, ctx, takim_adi: str = None, member: discord.Member = None):
+        await ctx.invoke(self.oyuncu_ekle_sub, takim_adi=takim_adi, member=member)
 
     @commands.command(name="takımkadro", aliases=["takimkadro"])
     async def takim_kadro(self, ctx, *, takim_adi: str = None):
@@ -137,8 +188,8 @@ class MacSistemi(commands.Cog):
 
         takim = self.takimlar[key]
         embed = discord.Embed(
-            title=f"⚽ {takim['orj_ad']} — KADRO VE BÜTÇE",
-            description=f"💰 **Bütçe:** {takim['butce']}M\n👥 **Kadro:** {len(takim['oyuncular'])} kişi\n\n📋 **OYUNCULAR**",
+            title=f"⚽ {takim['orj_ad']} — KADRO",
+            description=f"👥 **Kadro:** {len(takim['oyuncular'])} kişi\n\n📋 **OYUNCULAR**",
             color=0x2b2d31
         )
 
@@ -156,65 +207,6 @@ class MacSistemi(commands.Cog):
             embed.description += f"\n{liste}"
 
         await ctx.send(embed=embed)
-
-    # EKONOMİ VE TRANSFER
-    @commands.command(name="bütçe", aliases=["butce"])
-    async def butce_goster(self, ctx, *, takim_adi: str = None):
-        if not takim_adi:
-            await ctx.send("⚠️ Kullanım: `.bütçe <TakımAdı>`")
-            return
-        key = takim_adi.lower()
-        if key not in self.takimlar:
-            await ctx.send("❌ Takım bulunamadı.")
-            return
-        await ctx.send(f"💰 **{self.takimlar[key]['orj_ad']}** Bütçesi: **{self.takimlar[key]['butce']}M**")
-
-    @commands.command(name="bütçeekle", aliases=["butceekle"])
-    async def butce_ekle(self, ctx, takim_adi: str = None, miktar: float = 0.0):
-        if not ctx.author.guild_permissions.administrator: return
-        key = takim_adi.lower() if takim_adi else ""
-        if key not in self.takimlar:
-            await ctx.send("❌ Takım bulunamadı.")
-            return
-        self.takimlar[key]["butce"] += miktar
-        await ctx.send(f"✅ **{self.takimlar[key]['orj_ad']}** hesabına **{miktar}M** eklendi. Yeni Bütçe: **{self.takimlar[key]['butce']}M**")
-
-    @commands.command(name="transfer")
-    async def transfer_yap(self, ctx, satan_t: str = None, alan_t: str = None, member: discord.Member = None, bonservis: float = 0.0):
-        if not ctx.author.guild_permissions.administrator: return
-        if not satan_t or not alan_t or not member:
-            await ctx.send("⚠️ Kullanım: `.transfer <SatanTakım> <AlanTakım> @Oyuncu <Bonservis>`")
-            return
-
-        k_satan, k_alan = satan_t.lower(), alan_t.lower()
-        if k_satan not in self.takimlar or k_alan not in self.takimlar:
-            await ctx.send("❌ Takımlardan biri geçersiz.")
-            return
-
-        alan = self.takimlar[k_alan]
-        satan = self.takimlar[k_satan]
-
-        if alan["butce"] < bonservis:
-            await ctx.send(f"❌ **{alan['orj_ad']}** takımının bütçesi yetersiz! (Bütçe: {alan['butce']}M)")
-            return
-
-        # Kadrodan çıkar ve diğerine ekle
-        oyuncu_obj = None
-        for o in satan["oyuncular"]:
-            if o["member"].id == member.id:
-                oyuncu_obj = o
-                break
-
-        if not oyuncu_obj:
-            await ctx.send(f"❌ Oyuncu **{satan['orj_ad']}** kadrosunda bulunamadı.")
-            return
-
-        satan["oyuncular"].remove(oyuncu_obj)
-        alan["oyuncular"].append(oyuncu_obj)
-        alan["butce"] -= bonservis
-        satan["butce"] += bonservis
-
-        await ctx.send(f"🤝 **TRANSFER GERÇEKLEŞTİ!**\n**{oyuncu_obj['isim']}**, **{bonservis}M** karşılığında **{satan['orj_ad']}** ➡️ **{alan['orj_ad']}** transfer oldu!")
 
     # FİKSTÜR VE İLERLEME
     @commands.command(name="fikstüroluştur", aliases=["fiksturolustur"])
@@ -304,7 +296,6 @@ class MacSistemi(commands.Cog):
     async def simule_et(self, ctx, t1_ad, t2_ad):
         t1, t2 = self.takimlar[t1_ad.lower()], self.takimlar[t2_ad.lower()]
 
-        # Oynayabilir oyuncuları seç (Cezalı ve Sakatları Ayır)
         def uygun_kadro(oyuncular):
             uygun = []
             for o in oyuncular:
@@ -355,7 +346,7 @@ class MacSistemi(commands.Cog):
 
             elif olay == "KIRMIZI_KART" and o_def["id"] != 0:
                 self.istatistikler[o_def["id"]]["ceza_maci"] = 1
-                embed.description = f"🟥 **DIREKT KIRMIZI KART!** **{o_def['isim']}** oyundan ihraç edildi!"
+                embed.description = f"🟥 **DİREKT KIRMIZI KART!** **{o_def['isim']}** oyundan ihraç edildi!"
 
             elif olay == "SAKATLIK" and o_atak["id"] != 0:
                 s_sure = random.randint(1, 3)
@@ -372,7 +363,6 @@ class MacSistemi(commands.Cog):
                 await ctx.send(embed=embed)
                 await asyncio.sleep(2)
 
-        # Maç Sonu İstatistikleri & Cezaların Düşürülmesi
         t1["om"] += 1; t2["om"] += 1
         t1["ag"] += skor1; t1["yg"] += skor2
         t2["ag"] += skor2; t2["yg"] += skor1
@@ -385,7 +375,6 @@ class MacSistemi(commands.Cog):
         else:
             t1["b"] += 1; t2["b"] += 1; t1["puan"] += 1; t2["puan"] += 1
 
-        # Maç bitince cezası/sakatlığı olan oyuncuların maç sayısını 1 düşür
         for o in t1["oyuncular"] + t2["oyuncular"]:
             st = self.istatistikler[o["id"]]
             if st["ceza_maci"] > 0: st["ceza_maci"] -= 1
