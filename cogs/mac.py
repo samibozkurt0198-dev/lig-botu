@@ -22,11 +22,11 @@ class MacSistemi(commands.Cog):
         mevki_match = re.search(r'\b(KL|STP|SLB|SĞB|DOS|OS|OOS|SLK|SĞK|SNT|FRV)\b', display_name, re.IGNORECASE)
         mevki = mevki_match.group(1).upper() if mevki_match else "OS"
 
-        # 3. Bayrak Emoji (Örn: 🇦🇷, 🇵🇹, 🇮🇹, 🇫🇷, 🇹🇷)
+        # 3. Bayrak Emoji
         bayrak_match = re.search(r'[\U0001F1E6-\U0001F1FF]{2}', display_name)
         bayrak = bayrak_match.group(0) if bayrak_match else "🌐"
 
-        # 4. Temiz Oyuncu İsmi (Örn: B.Silva, S.Boey, M.Icardi)
+        # 4. Temiz Oyuncu İsmi
         temiz_isim = re.sub(r'\[.*?\]|\(.*?\)', '', display_name).strip()
         temiz_isim = temiz_isim.split('|')[0].strip()
         if "@" in temiz_isim:
@@ -46,9 +46,9 @@ class MacSistemi(commands.Cog):
             "pas": 0
         }
 
-    # YARDIM KOMUTU
-    @commands.command(name="yardım", aliases=["yardim"])
-    async def yardim(self, ctx):
+    # YARDIM KOMUTU (Komut adı çakışmayı önlemek için maçyardım yapıldı)
+    @commands.command(name="maçyardım", aliases=["macyardim", "maç-yardım"])
+    async def mac_yardim(self, ctx):
         embed = discord.Embed(
             title="⚽ ZENITH LEAGUE — MAÇ BOTU",
             description="🎡 Gelişmiş takım ve maç simülasyon sistemi.\n\nOyuncu bilgileri Discord nickname'inden otomatik okunur.",
@@ -220,13 +220,11 @@ class MacSistemi(commands.Cog):
         await ctx.send(embed=start_embed)
         await asyncio.sleep(3)
 
-        # Simülasyon Değişkenleri
         skor1, skor2 = 0, 0
         toplam_pas1, toplam_pas2 = 0, 0
         sut1, sut2 = 0, 0
         isabetli1, isabetli2 = 0, 0
 
-        # Dakika Bazlı Olaylar
         for dk in range(1, 90, random.randint(3, 8)):
             atak_takim = t1 if random.choice([True, False]) else t2
             defans_takim = t2 if atak_takim == t1 else t1
@@ -313,10 +311,8 @@ class MacSistemi(commands.Cog):
             await ctx.send(embed=embed)
             await asyncio.sleep(2.5)
 
-        # MAÇ SONU DETAYLI RAPOR EMBED'LERİ
         kazanan = t1['orj_ad'] if skor1 > skor2 else (t2['orj_ad'] if skor2 > skor1 else "Berabere")
         
-        # Embed 1: Maç İstatistik Özeti & MVP
         tum_oyuncular = t1["oyuncular"] + t2["oyuncular"]
         mvp = max(tum_oyuncular, key=lambda x: x["reyting"]) if tum_oyuncular else {"isim": "Yok", "mevki": "OS", "bayrak": "🌐", "deger_str": "0M", "reyting": 0.0}
 
@@ -339,7 +335,6 @@ class MacSistemi(commands.Cog):
         end_embed1.set_footer(text="Zenith League • Değer Bazlı Match Engine")
         await ctx.send(embed=end_embed1)
 
-        # Embed 2: Oyuncu Performans Listesi
         def perf_str(oyuncular):
             if not oyuncular: return "Oyuncu yok"
             res = ""
@@ -355,7 +350,6 @@ class MacSistemi(commands.Cog):
         )
         await ctx.send(embed=end_embed2)
 
-        # Embed 3: İstatistik Karşılaştırma Bar Grafiği
         def bar_ciz(val1, val2, emoji1="🟥", emoji2="🟦"):
             total = val1 + val2
             if total == 0: return f"{emoji1*5}{emoji2*5}"
@@ -375,3 +369,4 @@ class MacSistemi(commands.Cog):
 
 async def setup(bot):
     await bot.add_cog(MacSistemi(bot))
+
