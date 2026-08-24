@@ -7,191 +7,371 @@ import re
 class MacSistemi(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
+        # Takımları ve kadroları hafızada tutan veri yapısı
+        self.takimlar = {}
 
-    def oyuncu_bilgi_al(self, member: discord.Member):
+    def nickname_oku(self, member: discord.Member):
         display_name = member.display_name
         
-        # Değer bulma (Örn: 100M€ veya 50M)
+        # 1. Piyasa Değeri (Örn: 250M, 1M, 89M)
         deger_match = re.search(r'(\d+(?:\.\d+)?)\s*M', display_name, re.IGNORECASE)
-        deger_sayi = float(deger_match.group(1)) if deger_match else 10.0
-        
-        # Mevki bulma
+        deger_str = f"{deger_match.group(1)}M" if deger_match else "0M"
+        deger_sayi = float(deger_match.group(1)) if deger_match else 0.0
+
+        # 2. Mevki (Örn: SNT, OOS, SĞB, KL, STP vb.)
         mevki_match = re.search(r'\b(KL|STP|SLB|SĞB|DOS|OS|OOS|SLK|SĞK|SNT|FRV)\b', display_name, re.IGNORECASE)
         mevki = mevki_match.group(1).upper() if mevki_match else "OS"
-        
-        # Isim temizleme
+
+        # 3. Bayrak Emoji (Örn: 🇦🇷, 🇵🇹, 🇮🇹, 🇫🇷, 🇹🇷)
+        bayrak_match = re.search(r'[\U0001F1E6-\U0001F1FF]{2}', display_name)
+        bayrak = bayrak_match.group(0) if bayrak_match else "🌐"
+
+        # 4. Temiz Oyuncu İsmi (Örn: B.Silva, S.Boey, M.Icardi)
         temiz_isim = re.sub(r'\[.*?\]|\(.*?\)', '', display_name).strip()
         temiz_isim = temiz_isim.split('|')[0].strip()
+        if "@" in temiz_isim:
+            temiz_isim = temiz_isim.replace("@", "")
 
         return {
             "member": member,
-            "isim": temiz_isim[:12],
+            "isim": temiz_isim[:14],
             "mevki": mevki,
+            "bayrak": bayrak,
+            "deger_str": deger_str,
             "deger_sayi": deger_sayi,
-            "deger_str": f"{int(deger_sayi)}M€",
-            "reyting": round(random.uniform(6.0, 9.0), 1),
+            "reyting": round(random.uniform(5.5, 8.5), 1),
             "gol": 0,
-            "asist": 0
+            "asist": 0,
+            "sut": 0,
+            "pas": 0
         }
 
-    # Mevki bazlı Oyuncu Seçimi Mantığı
-    def golcu_sec(self, kadro):
-        # Kaleciler gol atamaz
-        adaylar = [o for o in kadro if o["mevki"] != "KL"]
-        
-        # Hücumcuların gol atma şansı daha yüksek
-        forvetler = [o for o in adaylar if o["mevki"] in ["SNT", "FRV", "SLK", "SĞK"]]
-        orta_sahalar = [o for o in adaylar if o["mevki"] in ["OS", "OOS", "DOS"]]
-        defanslar = [o for o in adaylar if o["mevki"] in ["STP", "SLB", "SĞB"]]
-
-        zar = random.randint(1, 100)
-        if zar <= 65 and forvetler:
-            return random.choice(forvetler)
-        elif zar <= 90 and orta_sahalar:
-            return random.choice(orta_sahalar)
-        elif defanslar:
-            return random.choice(defanslar)
-        return random.choice(adaylar)
-
-    def asistci_sec(self, kadro, golcu):
-        adaylar = [o for o in kadro if o != golcu and o["mevki"] != "KL"]
-        orta_sahalar = [o for o in adaylar if o["mevki"] in ["OS", "OOS", "SLK", "SĞK"]]
-
-        if random.randint(1, 100) <= 70 and orta_sahalar:
-            return random.choice(orta_sahalar)
-        return random.choice(adaylar) if adaylar else None
-
-    @commands.command(name="maç", aliases=["mac"])
-    async def mac_baslat(self, ctx, takim1_role: discord.Role = None, takim2_role: discord.Role = None):
-        yetkili_rol = discord.utils.get(ctx.author.roles, name="Maç Yetkilisi")
-        if not (ctx.author.guild_permissions.administrator or yetkili_rol):
-            await ctx.send("❌ Bu komutu sadece **Maç Yetkilisi** rolüne sahip kişiler kullanabilir!")
-            return
-
-        if not takim1_role or not takim2_role:
-            await ctx.send("⚠️ **Kullanım:** `.maç @Takım1Rolü @Takım2Rolü`")
-            return
-
-        takim1_adi, takim2_adi = takim1_role.name, takim2_role.name
-
-        t1_uyeler = [m for m in takim1_role.members if not m.bot]
-        t2_uyeler = [m for m in takim2_role.members if not m.bot]
-
-        t1_kadro = [self.oyuncu_bilgi_al(m) for m in t1_uyeler[:11]]
-        t2_kadro = [self.oyuncu_bilgi_al(m) for m in t2_uyeler[:11]]
-
-        # Yetersiz kadroları Kaleci ve NPC oyuncularla tamamlama
-        mevkiler = ["KL", "STP", "STP", "SLB", "SĞB", "DOS", "OS", "OOS", "SLK", "SĞK", "SNT"]
-        while len(t1_kadro) < 11:
-            m = mevkiler[len(t1_kadro)]
-            t1_kadro.append({"isim": f"NPC_{len(t1_kadro)+1}", "mevki": m, "deger_sayi": 5.0, "deger_str": "5M€", "reyting": 6.0, "gol": 0, "asist": 0, "member": None})
-        while len(t2_kadro) < 11:
-            m = mevkiler[len(t2_kadro)]
-            t2_kadro.append({"isim": f"NPC_{len(t2_kadro)+1}", "mevki": m, "deger_sayi": 5.0, "deger_str": "5M€", "reyting": 6.0, "gol": 0, "asist": 0, "member": None})
-
-        # Kadro Değeri & Güç Hesaplama
-        t1_guc = sum(o["deger_sayi"] for o in t1_kadro)
-        t2_guc = sum(o["deger_sayi"] for o in t2_kadro)
-
-        t1_sans = int((t1_guc / (t1_guc + t2_guc)) * 100)
-
-        skor1, skor2 = 0, 0
-
-        baslangic_embed = discord.Embed(
-            title=f"⚽ {takim1_adi} ({t1_sans}%) vs {takim2_adi} ({100-t1_sans}%)",
-            description=f"🚨 **MAÇ BAŞLADI!**\n\n💰 **{takim1_adi} Kadro Gücü:** `{int(t1_guc)}M€`\n💰 **{takim2_adi} Kadro Gücü:** `{int(t2_guc)}M€`\n\nHakem 90 dakikalık düdüğü çaldı!",
-            color=0x000000
+    # YARDIM KOMUTU
+    @commands.command(name="yardım", aliases=["yardim"])
+    async def yardim(self, ctx):
+        embed = discord.Embed(
+            title="⚽ ZENITH LEAGUE — MAÇ BOTU",
+            description="🎡 Gelişmiş takım ve maç simülasyon sistemi.\n\nOyuncu bilgileri Discord nickname'inden otomatik okunur.",
+            color=0x2b2d31
         )
-        mac_mesaji = await ctx.send(embed=baslangic_embed)
+        embed.add_field(
+            name="🏟️ TAKIM SİSTEMİ",
+            value="`!takımkur Milan`\n`!takımkadro Milan`\n`!takımoyuncuekle Milan @Oyuncu`\n`!takımoyuncuçıkar Milan @Oyuncu`",
+            inline=False
+        )
+        embed.add_field(
+            name="⚽ MAÇ SİSTEMİ",
+            value="`!takımaç Milan PSG`\n\nPas, şut, gol, asist, faul, kart, dribbling, müdahale, orta ve kurtarış.",
+            inline=False
+        )
+        embed.add_field(
+            name="👤 OYUNCU SİSTEMİ",
+            value="Nickname formatı:\n`C.Ronaldo | 🇵🇹 | SNT | 89M`\n\n👤 İsim • 🌐 Ülke • 📍 Pozisyon • 💰 Değer",
+            inline=False
+        )
+        embed.add_field(
+            name="⭐ DEĞER BAZLI PERFORMANS",
+            value="💰 Piyasa değeri yükseldikçe oyuncunun maçtaki etkisi yükselir.",
+            inline=False
+        )
+        embed.set_footer(text="Zenith League • Match Engine V2.3")
+        await ctx.send(embed=embed)
+
+    # TAKIM KUR
+    @commands.command(name="takımkur", aliases=["takimkur"])
+    async def takim_kur(self, ctx, *, takim_adi: str = None):
+        if not ctx.author.guild_permissions.administrator:
+            await ctx.send("❌ Bu komutu sadece yöneticiler kullanabilir.")
+            return
+        if not takim_adi:
+            await ctx.send("⚠️ Kullanım: `!takımkur <TakımAdı>`")
+            return
+
+        self.takimlar[takim_adi.lower()] = {"orj_ad": takim_adi, "oyuncular": []}
+        await ctx.send(f"✅ **{takim_adi}** takımı başarıyla oluşturuldu!")
+
+    # OYUNCU EKLE
+    @commands.command(name="takımoyuncuekle", aliases=["takimoyuncuekle"])
+    async def oyuncu_ekle(self, ctx, takim_adi: str = None, member: discord.Member = None):
+        if not ctx.author.guild_permissions.administrator:
+            await ctx.send("❌ Bu komutu sadece yöneticiler kullanabilir.")
+            return
+        if not takim_adi or not member:
+            await ctx.send("⚠️ Kullanım: `!takımoyuncuekle <TakımAdı> @Oyuncu`")
+            return
+
+        key = takim_adi.lower()
+        if key not in self.takimlar:
+            await ctx.send(f"❌ **{takim_adi}** takımı bulunamadı.")
+            return
+
+        o_bilgi = self.nickname_oku(member)
+        self.takimlar[key]["oyuncular"].append(o_bilgi)
+
+        embed = discord.Embed(
+            description=f"✅ **{o_bilgi['isim']}** takıma eklendi!\n\n"
+                        f"👤 **Oyuncu:** {o_bilgi['isim']}\n"
+                        f"🌐 **Ülke:** {o_bilgi['mevki']}\n"
+                        f"📍 **Pozisyon:** {o_bilgi['bayrak']}\n"
+                        f"💰 **Piyasa Değeri:** {o_bilgi['deger_str']}\n\n"
+                        f"🏟️ **Takım:** {self.takimlar[key]['orj_ad']}\n"
+                        f"👥 **Kadro:** {len(self.takimlar[key]['oyuncular'])} kişi",
+            color=0x2b2d31
+        )
+        await ctx.send(embed=embed)
+
+    # OYUNCU ÇIKAR
+    @commands.command(name="takımoyuncuçıkar", aliases=["takimoyuncucikar"])
+    async def oyuncu_cikar(self, ctx, takim_adi: str = None, member: discord.Member = None):
+        if not ctx.author.guild_permissions.administrator:
+            await ctx.send("❌ Bu komutu sadece yöneticiler kullanabilir.")
+            return
+        if not takim_adi or not member:
+            await ctx.send("❌ **Kullanım:** `!takımoyuncuçıkar <TakımAdı> @Oyuncu`")
+            return
+
+        key = takim_adi.lower()
+        if key not in self.takimlar:
+            await ctx.send(f"❌ **{takim_adi}** takımı bulunamadı.")
+            return
+
+        kadro = self.takimlar[key]["oyuncular"]
+        yeni_kadro = [o for o in kadro if o["member"].id != member.id]
+        
+        if len(kadro) == len(yeni_kadro):
+            await ctx.send(f"❌ Bu oyuncu **{self.takimlar[key]['orj_ad']}** kadrosunda yok.")
+            return
+
+        self.takimlar[key]["oyuncular"] = yeni_kadro
+        o_bilgi = self.nickname_oku(member)
+        await ctx.send(f"✅ **{o_bilgi['isim']}** oyuncusu **{self.takimlar[key]['orj_ad']}** takımından çıkarıldı.")
+
+    # KADRO GÖRÜNTÜLE
+    @commands.command(name="takımkadro", aliases=["takimkadro"])
+    async def takim_kadro(self, ctx, *, takim_adi: str = None):
+        if not takim_adi:
+            await ctx.send("⚠️ Kullanım: `!takımkadro <TakımAdı>`")
+            return
+
+        key = takim_adi.lower()
+        if key not in self.takimlar:
+            await ctx.send(f"❌ **{takim_adi}** takımı bulunamadı.")
+            return
+
+        takim = self.takimlar[key]
+        oyuncular = takim["oyuncular"]
+
+        embed = discord.Embed(
+            title=f"⚽ {takim['orj_ad']} — KADRO",
+            description=f"👥 **Kadro:** {len(oyuncular)} kişi\n\n📋 **OYUNCULAR**",
+            color=0x2b2d31
+        )
+
+        if not oyuncular:
+            embed.description += "\nHenüz oyuncu eklenmemiş."
+        else:
+            liste = ""
+            for i, o in enumerate(oyuncular, 1):
+                liste += f"**{i}.** {o['mevki']} **{o['isim']}** | {o['bayrak']} | 💰 **{o['deger_str']}**\n"
+            embed.description += f"\n{liste}"
+
+        await ctx.send(embed=embed)
+
+    # CANLI MAÇ MOTORU
+    @commands.command(name="takımaç", aliases=["takimac"])
+    async def takim_mac(self, ctx, t1_ad: str = None, t2_ad: str = None):
+        if not ctx.author.guild_permissions.administrator:
+            await ctx.send("❌ Bu komutu sadece yöneticiler kullanabilir.")
+            return
+        if not t1_ad or not t2_ad:
+            await ctx.send("⚠️ Kullanım: `!takımaç <Takım1> <Takım2>`")
+            return
+
+        k1, k2 = t1_ad.lower(), t2_ad.lower()
+        if k1 not in self.takimlar or k2 not in self.takimlar:
+            await ctx.send("❌ Belirtilen takımlardan biri veya ikisi sistemde kayıtlı değil!")
+            return
+
+        t1 = self.takimlar[k1]
+        t2 = self.takimlar[k2]
+
+        # Başlangıç Embed'i
+        init_embed = discord.Embed(
+            title="🏟️ ZENITH LEAGUE",
+            description=f"🇹🇷 **{t1['orj_ad']} 0 - 0 {t2['orj_ad']}**\n\n⏰ **Maç başlatılıyor...**",
+            color=0x2b2d31
+        )
+        await ctx.send(embed=init_embed)
         await asyncio.sleep(2)
 
-        # 90 Dakikalık Simülasyon
-        olay_dakikalari = sorted(random.sample(range(3, 89), random.randint(8, 12)))
-
-        for dk in range(1, 91):
-            if dk in olay_dakikalari:
-                # Güçlü olan takımın atağa çıkma ihtimali daha yüksek
-                atak_takim = 1 if random.randint(1, 100) <= t1_sans else 2
-                gol_mu = random.randint(1, 100) <= 35  # %35 Bitiricilik şansı
-
-                if atak_takim == 1:
-                    o = self.golcu_sec(t1_kadro)
-                    asistci = self.asistci_sec(t1_kadro, o)
-                    
-                    if gol_mu:
-                        skor1 += 1
-                        o["gol"] += 1
-                        o["reyting"] = min(10.0, round(o["reyting"] + 0.8, 1))
-                        asist_str = f" ← (Asist: **{asistci['isim']}**)" if asistci else ""
-                        if asistci: asistci["asist"] += 1
-                        
-                        detay = f"⚽ **{o['isim']}** | **{o['mevki']}** | `{o['deger_str']}`{asist_str}"
-                        olay = "🔥 **GOOOOL!** Ceza sahasında harika vuruş ve top ağlarda!"
-                    else:
-                        detay = f"⚡ **{o['isim']}** | **{o['mevki']}** kaleyi karşısına aldı..."
-                        olay = "🧤 **KURTARIŞ!** Kaleci harika uzandı ve gole izin vermedi!"
-                else:
-                    o = self.golcu_sec(t2_kadro)
-                    asistci = self.asistci_sec(t2_kadro, o)
-                    
-                    if gol_mu:
-                        skor2 += 1
-                        o["gol"] += 1
-                        o["reyting"] = min(10.0, round(o["reyting"] + 0.8, 1))
-                        asist_str = f" ← (Asist: **{asistci['isim']}**)" if asistci else ""
-                        if asistci: asistci["asist"] += 1
-                        
-                        detay = f"⚽ **{o['isim']}** | **{o['mevki']}** | `{o['deger_str']}`{asist_str}"
-                        olay = "🔥 **GOOOOL!** Ağları havalandıran müthiş gol!"
-                    else:
-                        detay = f"⚡ **{o['isim']}** | **{o['mevki']}** sert vurdu!"
-                        olay = "❌ **DIŞARI!** Top az farkla auta çıktı!"
-
-                embed = discord.Embed(
-                    title=f"⏱️ {dk}. Dakika | {takim1_adi} {skor1} - {skor2} {takim2_adi}",
-                    description=f"{detay}\n\n**{olay}**",
-                    color=0x000000
-                )
-                embed.set_footer(text="Tendo League 90 Dk Canlı Maç Motoru")
-                await mac_mesaji.edit(embed=embed)
-                await asyncio.sleep(2)
-            else:
-                if dk % 15 == 0:
-                    embed = discord.Embed(
-                        title=f"⏱️ {dk}. Dakika | {takim1_adi} {skor1} - {skor2} {takim2_adi}",
-                        description="⚽ Oyun orta sahada kıran kırana devam ediyor...",
-                        color=0x000000
-                    )
-                    await mac_mesaji.edit(embed=embed)
-                    await asyncio.sleep(1)
-
-        # MAÇ SONU
-        kazanan = f"🏆 **{takim1_adi}**" if skor1 > skor2 else (f"🏆 **{takim2_adi}**" if skor2 > skor1 else "🤝 **Berabere Bitti!**")
-        
-        istatistik_embed = discord.Embed(
-            title=f"🏁 MAÇ SONUCU: {takim1_adi} {skor1} - {skor2} {takim2_adi}",
-            description=f"{kazanan}\n\n"
-                        f"📊 **Kadro Gücü Etkisi:**\n"
-                        f"🛡️ **{takim1_adi}:** `{int(t1_guc)}M€` (%{t1_sans} Şans)\n"
-                        f"👑 **{takim2_adi}:** `{int(t2_guc)}M€` (%{100-t1_sans} Şans)",
-            color=0x000000
+        start_embed = discord.Embed(
+            title="🏟️ ZENITH LEAGUE — MAÇ BAŞLADI!",
+            description=f"🇹🇷 **{t1['orj_ad']} 0 - 0 {t2['orj_ad']}**",
+            color=0x2b2d31
         )
-        await ctx.send(embed=istatistik_embed)
 
-        # OYUNCU REYTİNG VE PERFORMANSLARI
-        def performans_listesi(kadro):
-            metin = ""
-            for i, o in enumerate(kadro, 1):
-                g_str = f" ⚽x{o['gol']}" if o['gol'] > 0 else ""
-                a_str = f" 🅰️x{o['asist']}" if o['asist'] > 0 else ""
-                metin += f"`{i:02d}` **{o['mevki']}** | ⭐ **{o['reyting']}** | **{o['isim']}** (`{o['deger_str']}`){g_str}{a_str}\n"
-            return metin
+        def kadro_str(oyuncular):
+            if not oyuncular: return "Oyuncu yok"
+            return "\n".join([f"{i+1}. {o['mevki']} **{o['isim']}** | {o['bayrak']} | {o['deger_str']}" for i, o in enumerate(oyuncular)])
 
-        embed1 = discord.Embed(title=f"🛡️ {takim1_adi} Oyuncu Performansları", description=performans_listesi(t1_kadro), color=0x000000)
-        embed2 = discord.Embed(title=f"👑 {takim2_adi} Oyuncu Performansları", description=performans_listesi(t2_kadro), color=0x000000)
+        start_embed.add_field(name=f"👥 {t1['orj_ad']}", value=kadro_str(t1["oyuncular"]), inline=False)
+        start_embed.add_field(name=f"👥 {t2['orj_ad']}", value=kadro_str(t2["oyuncular"]), inline=False)
+        start_embed.set_footer(text="⚽ Oyuncu değerleri nickname'den otomatik okunuyor.")
+        await ctx.send(embed=start_embed)
+        await asyncio.sleep(3)
+
+        # Simülasyon Değişkenleri
+        skor1, skor2 = 0, 0
+        toplam_pas1, toplam_pas2 = 0, 0
+        sut1, sut2 = 0, 0
+        isabetli1, isabetli2 = 0, 0
+
+        # Dakika Bazlı Olaylar
+        for dk in range(1, 90, random.randint(3, 8)):
+            atak_takim = t1 if random.choice([True, False]) else t2
+            defans_takim = t2 if atak_takim == t1 else t1
+            
+            o_atak = random.choice(atak_takim["oyuncular"]) if atak_takim["oyuncular"] else {"isim": "Oyuncu", "mevki": "OS", "bayrak": "🇹🇷", "deger_str": "1M", "reyting": 6.0}
+            o_hedef = random.choice(atak_takim["oyuncular"]) if atak_takim["oyuncular"] else o_atak
+            o_def = random.choice(defans_takim["oyuncular"]) if defans_takim["oyuncular"] else {"isim": "Defans", "mevki": "STP", "bayrak": "🇹🇷", "deger_str": "1M", "reyting": 6.0}
+
+            olay = random.choices(["PAS", "PAS_HATASI", "ORTA", "ATAK", "MÜDAHALE", "ŞUT", "GOL"], weights=[30, 15, 10, 15, 10, 10, 10])[0]
+
+            embed = discord.Embed(title=f"{dk}' {t1['orj_ad']} {skor1} - {skor2} {t2['orj_ad']}", color=0x2b2d31)
+            embed.set_footer(text="Zenith League • Maç Motoru V2.3")
+
+            if olay == "PAS":
+                m = random.randint(8, 35)
+                if atak_takim == t1: toplam_pas1 += 1
+                else: toplam_pas2 += 1
+                o_atak["pas"] += 1
+                embed.description = (
+                    f"🎯 **PAS!**\n\n"
+                    f"**{o_atak['isim']}** {o_atak['mevki']} | {o_atak['bayrak']} | 💰 {o_atak['deger_str']} oyunu kurdu.\n\n"
+                    f"📏 **{m} metrelik** isabetli pasla **{o_hedef['isim']}** oyuncusunu buldu!"
+                )
+
+            elif olay == "PAS_HATASI":
+                m = random.randint(10, 30)
+                embed.description = (
+                    f"❌ **PAS HATASI!**\n\n"
+                    f"**{o_atak['isim']}** {o_atak['mevki']} | {o_atak['bayrak']} | 💰 {o_atak['deger_str']} {m} metrelik pasını gönderdi fakat top rakibe gitti!"
+                )
+
+            elif olay == "ORTA":
+                m = random.randint(15, 30)
+                embed.description = (
+                    f"🌪️ **ORTA!**\n\n"
+                    f"**{o_atak['isim']}** {o_atak['mevki']} | {o_atak['bayrak']} kanattan **{m} metreden** ortayı açtı.\n\n"
+                    f"🎯 Top **{o_hedef['isim']}** oyuncusuna doğru geliyor!"
+                )
+
+            elif olay == "ATAK":
+                embed.description = (
+                    f"⚡ **ATAK!**\n\n"
+                    f"**{atak_takim['orj_ad']}** hızlı bir şekilde rakip yarı sahaya yerleşti.\n\n"
+                    f"📍 Top ceza sahasına doğru ilerliyor..."
+                )
+
+            elif olay == "MÜDAHALE":
+                embed.description = (
+                    f"🛡️ **MÜDAHALE!**\n\n"
+                    f"**{o_atak['isim']}** {o_atak['mevki']} | {o_atak['bayrak']} atağa kalktı.\n\n"
+                    f"🛡️ **{o_def['isim']}** {o_def['mevki']} | {o_def['bayrak']} zamanında kayarak topu aldı!"
+                )
+
+            elif olay == "ŞUT":
+                m = random.randint(10, 28)
+                if atak_takim == t1: 
+                    sut1 += 1; isabetli1 += 1
+                else: 
+                    sut2 += 1; isabetli2 += 1
+                o_atak["sut"] += 1
+                embed.description = (
+                    f"🎯 **İSABETLİ ŞUT!**\n\n"
+                    f"**{o_atak['isim']}** {o_atak['mevki']} | {o_atak['bayrak']} | 💰 {o_atak['deger_str']} **{m} metreden** vurdu, top kalecisiz kaleye gitti ama savunma son anda çizgiden uzaklaştırdı!"
+                )
+
+            elif olay == "GOL":
+                if atak_takim == t1: 
+                    skor1 += 1; sut1 += 1; isabetli1 += 1
+                else: 
+                    skor2 += 1; sut2 += 1; isabetli2 += 1
+                o_atak["gol"] += 1
+                o_hedef["asist"] += 1
+                o_atak["reyting"] = min(10.0, round(o_atak["reyting"] + 1.2, 1))
+                m = random.randint(6, 20)
+
+                embed.description = (
+                    f"⚽ **GOOOOOLLLLL! 🔥🔥🔥**\n\n"
+                    f"**{o_atak['isim']}** {o_atak['mevki']} | {o_atak['bayrak']} | 💰 {o_atak['deger_str']} savunma arkasına sarktı!\n\n"
+                    f"📍 Kaleye **{m} metre** mesafeden vurdu ve top ağlarda!\n\n"
+                    f"🎯 **ASİST**\n"
+                    f"**{o_hedef['isim']}** {o_hedef['mevki']} | {o_hedef['bayrak']} | 💰 {o_hedef['deger_str']}"
+                )
+
+            await ctx.send(embed=embed)
+            await asyncio.sleep(2.5)
+
+        # MAÇ SONU DETAYLI RAPOR EMBED'LERİ
+        kazanan = t1['orj_ad'] if skor1 > skor2 else (t2['orj_ad'] if skor2 > skor1 else "Berabere")
         
-        await ctx.send(embed=embed1)
-        await ctx.send(embed=embed2)
+        # Embed 1: Maç İstatistik Özeti & MVP
+        tum_oyuncular = t1["oyuncular"] + t2["oyuncular"]
+        mvp = max(tum_oyuncular, key=lambda x: x["reyting"]) if tum_oyuncular else {"isim": "Yok", "mevki": "OS", "bayrak": "🌐", "deger_str": "0M", "reyting": 0.0}
+
+        end_embed1 = discord.Embed(
+            title="🏆 ZENITH LEAGUE — MAÇ SONA ERDİ",
+            description=f"**{t1['orj_ad']} {skor1} - {skor2} {t2['orj_ad']}**\n🏆 **{kazanan}**\n\n"
+                        f"📊 **MAÇ İSTATİSTİKLERİ**\n"
+                        f"⚽ **Goller:** {skor1 + skor2}\n"
+                        f"🎯 **Şutlar:** {sut1 + sut2}\n"
+                        f"🟨 **Sarı Kart:** 0\n"
+                        f"⚠️ **Fauller:** 0\n"
+                        f"🎯 **Toplam Pas:** {toplam_pas1 + toplam_pas2}\n"
+                        f"🅰️ **Asistler:** {skor1 + skor2}\n\n"
+                        f"⭐ **MAÇIN OYUNCUSU**\n"
+                        f"👑 **{mvp['isim']}**\n"
+                        f"{mvp['mevki']} | {mvp['bayrak']} | 💰 {mvp['deger_str']}\n"
+                        f"⭐ **{mvp['reyting']}**",
+            color=0x2b2d31
+        )
+        end_embed1.set_footer(text="Zenith League • Değer Bazlı Match Engine")
+        await ctx.send(embed=end_embed1)
+
+        # Embed 2: Oyuncu Performans Listesi
+        def perf_str(oyuncular):
+            if not oyuncular: return "Oyuncu yok"
+            res = ""
+            for i, o in enumerate(oyuncular, 1):
+                res += f"{i}. 🟢 **{o['reyting']}** {o['mevki']} **{o['isim']}** | {o['bayrak']} | 💰 {o['deger_str']}\n"
+                res += f"   ⚽ {o['gol']} • 🅰️ {o['asist']} • 🎯 {o['sut']} şut • 🎯 {o['pas']} pas\n"
+            return res
+
+        end_embed2 = discord.Embed(
+            title="📋 MAÇ OYUNCU PERFORMANSLARI",
+            description=f"**{t1['orj_ad']}**\n{perf_str(t1['oyuncular'])}\n\n**{t2['orj_ad']}**\n{perf_str(t2['oyuncular'])}",
+            color=0x2b2d31
+        )
+        await ctx.send(embed=end_embed2)
+
+        # Embed 3: İstatistik Karşılaştırma Bar Grafiği
+        def bar_ciz(val1, val2, emoji1="🟥", emoji2="🟦"):
+            total = val1 + val2
+            if total == 0: return f"{emoji1*5}{emoji2*5}"
+            ratio1 = int((val1 / total) * 10)
+            return f"{emoji1 * ratio1}{emoji2 * (10 - ratio1)}"
+
+        end_embed3 = discord.Embed(
+            title="📊 Performans Karşılaştırması",
+            description=f"🟦 **{t1['orj_ad']}** — **{t2['orj_ad']}** 🟥\n\n"
+                        f"**Şut**\n{sut1} {bar_ciz(sut1, sut2)} {sut2}\n\n"
+                        f"**İsabetli Şut**\n{isabetli1} {bar_ciz(isabetli1, isabetli2)} {isabetli2}\n\n"
+                        f"**Pas**\n{toplam_pas1} {bar_ciz(toplam_pas1, toplam_pas2)} {toplam_pas2}\n\n"
+                        f"🏆 **Daha iyi performans:** **{kazanan}**",
+            color=0x2b2d31
+        )
+        await ctx.send(embed=end_embed3)
 
 async def setup(bot):
     await bot.add_cog(MacSistemi(bot))
