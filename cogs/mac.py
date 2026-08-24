@@ -7,26 +7,21 @@ import re
 class MacSistemi(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        # Takımları ve kadroları hafızada tutan veri yapısı
         self.takimlar = {}
 
     def nickname_oku(self, member: discord.Member):
         display_name = member.display_name
         
-        # 1. Piyasa Değeri (Örn: 250M, 1M, 89M)
         deger_match = re.search(r'(\d+(?:\.\d+)?)\s*M', display_name, re.IGNORECASE)
         deger_str = f"{deger_match.group(1)}M" if deger_match else "0M"
         deger_sayi = float(deger_match.group(1)) if deger_match else 0.0
 
-        # 2. Mevki (Örn: SNT, OOS, SĞB, KL, STP vb.)
         mevki_match = re.search(r'\b(KL|STP|SLB|SĞB|DOS|OS|OOS|SLK|SĞK|SNT|FRV)\b', display_name, re.IGNORECASE)
         mevki = mevki_match.group(1).upper() if mevki_match else "OS"
 
-        # 3. Bayrak Emoji
         bayrak_match = re.search(r'[\U0001F1E6-\U0001F1FF]{2}', display_name)
         bayrak = bayrak_match.group(0) if bayrak_match else "🌐"
 
-        # 4. Temiz Oyuncu İsmi
         temiz_isim = re.sub(r'\[.*?\]|\(.*?\)', '', display_name).strip()
         temiz_isim = temiz_isim.split('|')[0].strip()
         if "@" in temiz_isim:
@@ -40,14 +35,16 @@ class MacSistemi(commands.Cog):
             "deger_str": deger_str,
             "deger_sayi": deger_sayi,
             "reyting": round(random.uniform(5.5, 8.5), 1),
-            "gol": 0,
-            "asist": 0,
-            "sut": 0,
-            "pas": 0
+            "gol": 0, "asist": 0, "sut": 0, "pas": 0
         }
 
-    # YARDIM KOMUTU (Komut adı çakışmayı önlemek için maçyardım yapıldı)
-    @commands.command(name="maçyardım", aliases=["macyardim", "maç-yardım"])
+    # POLİTİKA: '.m' ana komut grubu oluşturuldu
+    @commands.group(name="m", invoke_without_command=True)
+    async def m_group(self, ctx):
+        await ctx.invoke(self.mac_yardim)
+
+    # .m yardım VEYA .maçyardım
+    @m_group.command(name="yardım", aliases=["yardim"])
     async def mac_yardim(self, ctx):
         embed = discord.Embed(
             title="⚽ ZENITH LEAGUE — MAÇ BOTU",
@@ -56,48 +53,41 @@ class MacSistemi(commands.Cog):
         )
         embed.add_field(
             name="🏟️ TAKIM SİSTEMİ",
-            value="`!takımkur Milan`\n`!takımkadro Milan`\n`!takımoyuncuekle Milan @Oyuncu`\n`!takımoyuncuçıkar Milan @Oyuncu`",
+            value="`.takımkur Milan`\n`.takımkadro Milan`\n`.takımoyuncuekle Milan @Oyuncu`\n`.takımoyuncuçıkar Milan @Oyuncu`",
             inline=False
         )
         embed.add_field(
             name="⚽ MAÇ SİSTEMİ",
-            value="`!takımaç Milan PSG`\n\nPas, şut, gol, asist, faul, kart, dribbling, müdahale, orta ve kurtarış.",
+            value="`.takımaç Milan PSG` veya `.m aç Milan PSG`",
             inline=False
         )
         embed.add_field(
             name="👤 OYUNCU SİSTEMİ",
-            value="Nickname formatı:\n`C.Ronaldo | 🇵🇹 | SNT | 89M`\n\n👤 İsim • 🌐 Ülke • 📍 Pozisyon • 💰 Değer",
-            inline=False
-        )
-        embed.add_field(
-            name="⭐ DEĞER BAZLI PERFORMANS",
-            value="💰 Piyasa değeri yükseldikçe oyuncunun maçtaki etkisi yükselir.",
+            value="Nickname formatı:\n`C.Ronaldo | 🇵🇹 | SNT | 89M`",
             inline=False
         )
         embed.set_footer(text="Zenith League • Match Engine V2.3")
         await ctx.send(embed=embed)
 
-    # TAKIM KUR
     @commands.command(name="takımkur", aliases=["takimkur"])
     async def takim_kur(self, ctx, *, takim_adi: str = None):
         if not ctx.author.guild_permissions.administrator:
             await ctx.send("❌ Bu komutu sadece yöneticiler kullanabilir.")
             return
         if not takim_adi:
-            await ctx.send("⚠️ Kullanım: `!takımkur <TakımAdı>`")
+            await ctx.send("⚠️ Kullanım: `.takımkur <TakımAdı>`")
             return
 
         self.takimlar[takim_adi.lower()] = {"orj_ad": takim_adi, "oyuncular": []}
         await ctx.send(f"✅ **{takim_adi}** takımı başarıyla oluşturuldu!")
 
-    # OYUNCU EKLE
     @commands.command(name="takımoyuncuekle", aliases=["takimoyuncuekle"])
     async def oyuncu_ekle(self, ctx, takim_adi: str = None, member: discord.Member = None):
         if not ctx.author.guild_permissions.administrator:
             await ctx.send("❌ Bu komutu sadece yöneticiler kullanabilir.")
             return
         if not takim_adi or not member:
-            await ctx.send("⚠️ Kullanım: `!takımoyuncuekle <TakımAdı> @Oyuncu`")
+            await ctx.send("⚠️ Kullanım: `.takımoyuncuekle <TakımAdı> @Oyuncu`")
             return
 
         key = takim_adi.lower()
@@ -120,14 +110,13 @@ class MacSistemi(commands.Cog):
         )
         await ctx.send(embed=embed)
 
-    # OYUNCU ÇIKAR
     @commands.command(name="takımoyuncuçıkar", aliases=["takimoyuncucikar"])
     async def oyuncu_cikar(self, ctx, takim_adi: str = None, member: discord.Member = None):
         if not ctx.author.guild_permissions.administrator:
             await ctx.send("❌ Bu komutu sadece yöneticiler kullanabilir.")
             return
         if not takim_adi or not member:
-            await ctx.send("❌ **Kullanım:** `!takımoyuncuçıkar <TakımAdı> @Oyuncu`")
+            await ctx.send("❌ **Kullanım:** `.takımoyuncuçıkar <TakımAdı> @Oyuncu`")
             return
 
         key = takim_adi.lower()
@@ -146,11 +135,10 @@ class MacSistemi(commands.Cog):
         o_bilgi = self.nickname_oku(member)
         await ctx.send(f"✅ **{o_bilgi['isim']}** oyuncusu **{self.takimlar[key]['orj_ad']}** takımından çıkarıldı.")
 
-    # KADRO GÖRÜNTÜLE
     @commands.command(name="takımkadro", aliases=["takimkadro"])
     async def takim_kadro(self, ctx, *, takim_adi: str = None):
         if not takim_adi:
-            await ctx.send("⚠️ Kullanım: `!takımkadro <TakımAdı>`")
+            await ctx.send("⚠️ Kullanım: `.takımkadro <TakımAdı>`")
             return
 
         key = takim_adi.lower()
@@ -177,14 +165,13 @@ class MacSistemi(commands.Cog):
 
         await ctx.send(embed=embed)
 
-    # CANLI MAÇ MOTORU
     @commands.command(name="takımaç", aliases=["takimac"])
     async def takim_mac(self, ctx, t1_ad: str = None, t2_ad: str = None):
         if not ctx.author.guild_permissions.administrator:
             await ctx.send("❌ Bu komutu sadece yöneticiler kullanabilir.")
             return
         if not t1_ad or not t2_ad:
-            await ctx.send("⚠️ Kullanım: `!takımaç <Takım1> <Takım2>`")
+            await ctx.send("⚠️ Kullanım: `.takımaç <Takım1> <Takım2>`")
             return
 
         k1, k2 = t1_ad.lower(), t2_ad.lower()
@@ -195,7 +182,6 @@ class MacSistemi(commands.Cog):
         t1 = self.takimlar[k1]
         t2 = self.takimlar[k2]
 
-        # Başlangıç Embed'i
         init_embed = discord.Embed(
             title="🏟️ ZENITH LEAGUE",
             description=f"🇹🇷 **{t1['orj_ad']} 0 - 0 {t2['orj_ad']}**\n\n⏰ **Maç başlatılıyor...**",
@@ -369,4 +355,3 @@ class MacSistemi(commands.Cog):
 
 async def setup(bot):
     await bot.add_cog(MacSistemi(bot))
-
