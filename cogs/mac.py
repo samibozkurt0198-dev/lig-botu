@@ -8,6 +8,7 @@ class MacSistemi(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.takimlar = {}
+        self.fikstur = []  # [[(takim1, takim2), ...], ...] şeklinde haftalık maçlar
 
     def nickname_oku(self, member: discord.Member):
         display_name = member.display_name
@@ -48,22 +49,22 @@ class MacSistemi(commands.Cog):
     async def mac_yardim(self, ctx):
         embed = discord.Embed(
             title="⚽ TENDO LEAGUE — MAÇ BOTU",
-            description="🎡 Gelişmiş takım, puan durumu ve maç simülasyon sistemi.\n\nOyuncu bilgileri Discord nickname'inden otomatik okunur.",
+            description="🎡 Gelişmiş takım, fikstür, puan durumu ve maç simülasyon sistemi.",
             color=0x2b2d31
         )
         embed.add_field(
             name="🏟️ TAKIM SİSTEMİ",
-            value="`.takımkur Milan`\n`.takımkadro Milan`\n`.takımoyuncuekle Milan @Oyuncu`\n`.takımoyuncuçıkar Milan @Oyuncu`",
+            value="`.takımkur Milan`\n`.takımkadro Milan`\n`.takımoyuncuekle Milan @Oyuncu`",
+            inline=False
+        )
+        embed.add_field(
+            name="📅 FİKSTÜR SİSTEMİ",
+            value="`.fikstüroluştur` (Lig fikstürü çek)\n`.fikstür` (Fikstürü incele)",
             inline=False
         )
         embed.add_field(
             name="⚽ MAÇ & PUAN SİSTEMİ",
-            value="`.takımaç Milan PSG` veya `.m aç Milan PSG`\n`.puan` veya `.m puan` (Puan Durumu)",
-            inline=False
-        )
-        embed.add_field(
-            name="👤 OYUNCU SİSTEMİ",
-            value="Nickname formatı:\n`C.Ronaldo | 🇵🇹 | SNT | 89M`",
+            value="`.takımaç Milan PSG` veya `.m aç Milan PSG`\n`.puan` (Puan Durumu)",
             inline=False
         )
         embed.set_footer(text="Tendo League • Match Engine V2.3")
@@ -174,6 +175,65 @@ class MacSistemi(commands.Cog):
             embed.description += f"\n{liste}"
 
         await ctx.send(embed=embed)
+
+    # FİKSTÜR YÖNETİMİ
+    @commands.command(name="fikstüroluştur", aliases=["fiksturolustur", "fikstur-olustur"])
+    async def fikstur_olustur(self, ctx):
+        if not ctx.author.guild_permissions.administrator:
+            await ctx.send("❌ Bu komutu sadece yöneticiler kullanabilir.")
+            return
+
+        takim_listesi = [t["orj_ad"] for t in self.takimlar.values()]
+        if len(takim_listesi) < 2:
+            await ctx.send("❌ Fikstür oluşturmak için en az 2 takım kayıtlı olmalıdır!")
+            return
+
+        if len(takim_listesi) % 2 != 0:
+            takim_listesi.append("BAY")
+
+        n = len(takim_listesi)
+        haftalar = []
+
+        for hafta in range(n - 1):
+            maclar = []
+            for i in range(n // 2):
+                t1 = takim_listesi[i]
+                t2 = takim_listesi[n - 1 - i]
+                if t1 != "BAY" and t2 != "BAY":
+                    maclar.append((t1, t2))
+            haftalar.append(maclar)
+            takim_listesi.insert(1, takim_listesi.pop())
+
+        self.fikstur = haftalar
+        await ctx.send(f"📅 **Tendo League** fikstürü {len(haftalar)} haftalık olarak başarıyla oluşturuldu!")
+
+    @commands.command(name="fikstür", aliases=["fikstur"])
+    async def fikstur_goster(self, ctx):
+        if not self.fikstur:
+            await ctx.send("❌ Henüz oluşturulmuş bir fikstür bulunmuyor! `.fikstüroluştur` komutunu kullanın.")
+            return
+
+        embed = discord.Embed(
+            title="📅 TENDO LEAGUE — FİKSTÜR",
+            color=0x2b2d31
+        )
+
+        for idx, hafta in enumerate(self.fikstur, 1):
+            mac_metni = ""
+            for t1, t2 in hafta:
+                mac_metni += f"⚽ **{t1}** vs **{t2}**\n"
+            embed.add_field(name=f"📍 {idx}. Hafta", value=mac_metni if mac_metni else "Maç yok", inline=False)
+
+        embed.set_footer(text="Tendo League • Official Schedule")
+        await ctx.send(embed=embed)
+
+    @commands.command(name="fikstürsıfırla", aliases=["fikstursifirla"])
+    async def fikstur_sifirla(self, ctx):
+        if not ctx.author.guild_permissions.administrator:
+            await ctx.send("❌ Bu komutu sadece yöneticiler kullanabilir.")
+            return
+        self.fikstur = []
+        await ctx.send("🔄 Fikstür başarıyla temizlendi!")
 
     # PUAN DURUMU KOMUTLARI
     @m_group.command(name="puan")
@@ -361,7 +421,7 @@ class MacSistemi(commands.Cog):
 
         kazanan = t1['orj_ad'] if skor1 > skor2 else (t2['orj_ad'] if skor2 > skor1 else "Berabere")
         
-        # Puan Durumu İstatistiklerini Güncelleme
+        # Puan Durumu Güncelleme
         t1["om"] += 1
         t2["om"] += 1
         t1["ag"] += skor1
