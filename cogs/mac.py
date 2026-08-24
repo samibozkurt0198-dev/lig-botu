@@ -38,7 +38,7 @@ class MacSistemi(commands.Cog):
             "gol": 0, "asist": 0, "sut": 0, "pas": 0
         }
 
-    # POLİTİKA: '.m' ana komut grubu oluşturuldu
+    # POLİTİKA: '.m' ana komut grubu
     @commands.group(name="m", invoke_without_command=True)
     async def m_group(self, ctx):
         await ctx.invoke(self.mac_yardim)
@@ -47,7 +47,7 @@ class MacSistemi(commands.Cog):
     @m_group.command(name="yardım", aliases=["yardim"])
     async def mac_yardim(self, ctx):
         embed = discord.Embed(
-            title="⚽ ZENITH LEAGUE — MAÇ BOTU",
+            title="⚽ TENDO LEAGUE — MAÇ BOTU",
             description="🎡 Gelişmiş takım ve maç simülasyon sistemi.\n\nOyuncu bilgileri Discord nickname'inden otomatik okunur.",
             color=0x2b2d31
         )
@@ -66,7 +66,7 @@ class MacSistemi(commands.Cog):
             value="Nickname formatı:\n`C.Ronaldo | 🇵🇹 | SNT | 89M`",
             inline=False
         )
-        embed.set_footer(text="Zenith League • Match Engine V2.3")
+        embed.set_footer(text="Tendo League • Match Engine V2.3")
         await ctx.send(embed=embed)
 
     @commands.command(name="takımkur", aliases=["takimkur"])
@@ -101,8 +101,8 @@ class MacSistemi(commands.Cog):
         embed = discord.Embed(
             description=f"✅ **{o_bilgi['isim']}** takıma eklendi!\n\n"
                         f"👤 **Oyuncu:** {o_bilgi['isim']}\n"
-                        f"🌐 **Ülke:** {o_bilgi['mevki']}\n"
-                        f"📍 **Pozisyon:** {o_bilgi['bayrak']}\n"
+                        f"🌐 **Ülke:** {o_bilgi['bayrak']}\n"
+                        f"📍 **Pozisyon:** {o_bilgi['mevki']}\n"
                         f"💰 **Piyasa Değeri:** {o_bilgi['deger_str']}\n\n"
                         f"🏟️ **Takım:** {self.takimlar[key]['orj_ad']}\n"
                         f"👥 **Kadro:** {len(self.takimlar[key]['oyuncular'])} kişi",
@@ -183,7 +183,7 @@ class MacSistemi(commands.Cog):
         t2 = self.takimlar[k2]
 
         init_embed = discord.Embed(
-            title="🏟️ ZENITH LEAGUE",
+            title="🏟️ TENDO LEAGUE",
             description=f"🇹🇷 **{t1['orj_ad']} 0 - 0 {t2['orj_ad']}**\n\n⏰ **Maç başlatılıyor...**",
             color=0x2b2d31
         )
@@ -191,7 +191,7 @@ class MacSistemi(commands.Cog):
         await asyncio.sleep(2)
 
         start_embed = discord.Embed(
-            title="🏟️ ZENITH LEAGUE — MAÇ BAŞLADI!",
+            title="🏟️ TENDO LEAGUE — MAÇ BAŞLADI!",
             description=f"🇹🇷 **{t1['orj_ad']} 0 - 0 {t2['orj_ad']}**",
             color=0x2b2d31
         )
@@ -222,7 +222,7 @@ class MacSistemi(commands.Cog):
             olay = random.choices(["PAS", "PAS_HATASI", "ORTA", "ATAK", "MÜDAHALE", "ŞUT", "GOL"], weights=[30, 15, 10, 15, 10, 10, 10])[0]
 
             embed = discord.Embed(title=f"{dk}' {t1['orj_ad']} {skor1} - {skor2} {t2['orj_ad']}", color=0x2b2d31)
-            embed.set_footer(text="Zenith League • Maç Motoru V2.3")
+            embed.set_footer(text="Tendo League • Maç Motoru V2.3")
 
             if olay == "PAS":
                 m = random.randint(8, 35)
@@ -303,7 +303,7 @@ class MacSistemi(commands.Cog):
         mvp = max(tum_oyuncular, key=lambda x: x["reyting"]) if tum_oyuncular else {"isim": "Yok", "mevki": "OS", "bayrak": "🌐", "deger_str": "0M", "reyting": 0.0}
 
         end_embed1 = discord.Embed(
-            title="🏆 ZENITH LEAGUE — MAÇ SONA ERDİ",
+            title="🏆 TENDO LEAGUE — MAÇ SONA ERDİ",
             description=f"**{t1['orj_ad']} {skor1} - {skor2} {t2['orj_ad']}**\n🏆 **{kazanan}**\n\n"
                         f"📊 **MAÇ İSTATİSTİKLERİ**\n"
                         f"⚽ **Goller:** {skor1 + skor2}\n"
@@ -318,7 +318,7 @@ class MacSistemi(commands.Cog):
                         f"⭐ **{mvp['reyting']}**",
             color=0x2b2d31
         )
-        end_embed1.set_footer(text="Zenith League • Değer Bazlı Match Engine")
+        end_embed1.set_footer(text="Tendo League • Değer Bazlı Match Engine")
         await ctx.send(embed=end_embed1)
 
         def perf_str(oyuncular):
