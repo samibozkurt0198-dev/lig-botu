@@ -66,7 +66,7 @@ class MacSistemi(commands.Cog):
         )
         embed.add_field(
             name="🏟️ TAKIM & OYUNCU YÖNETİMİ",
-            value="`.takımkur Milan` | `.takımkadro Milan`\n`.oyuncu ekle Milan @Oyuncu` (Yetkili)\n`.oyuncu çıkar Milan @Oyuncu` (Yetkili)",
+            value="`.takımkur Uygur Team` | `.takımkadro Uygur Team`\n`.oyuncuekle Uygur Team @Oyuncu` (Yetkili)\n`.oyuncuçıkar Uygur Team @Oyuncu` (Yetkili)",
             inline=False
         )
         embed.add_field(
@@ -79,7 +79,7 @@ class MacSistemi(commands.Cog):
             value="`.puan` (Puan Durumu)\n`.krallık` (Gol ve Asist Krallığı)",
             inline=False
         )
-        embed.set_footer(text="Tendo League • Match Engine V3.1")
+        embed.set_footer(text="Tendo League • Match Engine V3.2")
         await ctx.send(embed=embed)
 
     @commands.command(name="takımkur", aliases=["takimkur"])
@@ -91,36 +91,37 @@ class MacSistemi(commands.Cog):
             await ctx.send("⚠️ Kullanım: `.takımkur <TakımAdı>`")
             return
 
-        key = takim_adi.lower()
+        key = takim_adi.lower().strip()
         if key in self.takimlar:
             await ctx.send(f"❌ **{takim_adi}** zaten kurulmuş.")
             return
 
         self.takimlar[key] = {
-            "orj_ad": takim_adi,
+            "orj_ad": takim_adi.strip(),
             "oyuncular": [],
             "om": 0, "g": 0, "b": 0, "m": 0,
             "ag": 0, "yg": 0, "av": 0, "puan": 0
         }
         await ctx.send(f"✅ **{takim_adi}** takımı başarıyla oluşturuldu!")
 
-    # OYUNCU KOMUT GRUBU (.oyuncu ekle <takım> @oyuncu)
-    @commands.group(name="oyuncu", invoke_without_command=True)
-    async def oyuncu_group(self, ctx):
-        await ctx.send("⚠️ Kullanım: `.oyuncu ekle <Takım> @Oyuncu` veya `.oyuncu çıkar <Takım> @Oyuncu`")
-
-    @oyuncu_group.command(name="ekle")
-    async def oyuncu_ekle_sub(self, ctx, takim_adi: str = None, member: discord.Member = None):
+    # .oyuncuekle komutu (Çoklu kelimeli takım isimlerini destekler)
+    @commands.command(name="oyuncuekle")
+    async def oyuncu_ekle_direkt(self, ctx, *, argumanlar: str = None):
         if not ctx.author.guild_permissions.administrator:
             await ctx.send("❌ Bu komutu sadece yöneticiler kullanabilir.")
             return
-        if not takim_adi or not member:
-            await ctx.send("⚠️ Kullanım: `.oyuncu ekle <TakımAdı> @Oyuncu`")
+
+        if not argumanlar or not ctx.message.mentions:
+            await ctx.send("⚠️ Kullanım: `.oyuncuekle <Takım Adı> @Oyuncu`")
             return
+
+        member = ctx.message.mentions[0]
+        # Etiket kısmını temizleyip sadece takım adını alıyoruz
+        takim_adi = re.sub(r'<@!?\d+>', '', argumanlar).strip()
 
         key = takim_adi.lower()
         if key not in self.takimlar:
-            await ctx.send(f"❌ **{takim_adi}** takımı bulunamadı.")
+            await ctx.send(f"❌ **{takim_adi}** takımı bulunamadı. Kurulu takımlar için `.puan` kontrol edebilirsiniz.")
             return
 
         # Oyuncu başka takımda var mı kontrolü
@@ -145,14 +146,18 @@ class MacSistemi(commands.Cog):
         )
         await ctx.send(embed=embed)
 
-    @oyuncu_group.command(name="çıkar", aliases=["cikar"])
-    async def oyuncu_cikar_sub(self, ctx, takim_adi: str = None, member: discord.Member = None):
+    @commands.command(name="oyuncuçıkar", aliases=["oyuncucikar"])
+    async def oyuncu_cikar_direkt(self, ctx, *, argumanlar: str = None):
         if not ctx.author.guild_permissions.administrator:
             await ctx.send("❌ Bu komutu sadece yöneticiler kullanabilir.")
             return
-        if not takim_adi or not member:
-            await ctx.send("⚠️ Kullanım: `.oyuncu çıkar <TakımAdı> @Oyuncu`")
+
+        if not argumanlar or not ctx.message.mentions:
+            await ctx.send("⚠️ Kullanım: `.oyuncuçıkar <Takım Adı> @Oyuncu`")
             return
+
+        member = ctx.message.mentions[0]
+        takim_adi = re.sub(r'<@!?\d+>', '', argumanlar).strip()
 
         key = takim_adi.lower()
         if key not in self.takimlar:
@@ -170,18 +175,13 @@ class MacSistemi(commands.Cog):
         o_bilgi = self.nickname_oku(member)
         await ctx.send(f"✅ **{o_bilgi['isim']}** oyuncusu **{self.takimlar[key]['orj_ad']}** takımından çıkarıldı.")
 
-    # Alternatif Doğrudan Komut (.oyuncuekle)
-    @commands.command(name="oyuncuekle")
-    async def oyuncu_ekle_direkt(self, ctx, takim_adi: str = None, member: discord.Member = None):
-        await ctx.invoke(self.oyuncu_ekle_sub, takim_adi=takim_adi, member=member)
-
     @commands.command(name="takımkadro", aliases=["takimkadro"])
     async def takim_kadro(self, ctx, *, takim_adi: str = None):
         if not takim_adi:
             await ctx.send("⚠️ Kullanım: `.takımkadro <TakımAdı>`")
             return
 
-        key = takim_adi.lower()
+        key = takim_adi.lower().strip()
         if key not in self.takimlar:
             await ctx.send(f"❌ **{takim_adi}** takımı bulunamadı.")
             return
@@ -261,7 +261,6 @@ class MacSistemi(commands.Cog):
             await self.simule_et(ctx, t1_ad, t2_ad)
             await asyncio.sleep(2)
 
-    # GOL & ASİST KRALLIĞI
     @commands.command(name="krallık", aliases=["krallik"])
     async def krallik_goster(self, ctx):
         golculer = sorted(self.istatistikler.values(), key=lambda x: x["gol"], reverse=True)[:5]
@@ -292,7 +291,7 @@ class MacSistemi(commands.Cog):
         embed = discord.Embed(title="🏆 TENDO LEAGUE — PUAN DURUMU", description=tablo, color=0x2b2d31)
         await ctx.send(embed=embed)
 
-    # MAÇ MOTORU
+    # MAÇ MOTORU (1'DEN 90'A SABİT İLERLEME VE CANLI BOARD GÜNCELLEME)
     async def simule_et(self, ctx, t1_ad, t2_ad):
         t1, t2 = self.takimlar[t1_ad.lower()], self.takimlar[t2_ad.lower()]
 
@@ -311,58 +310,70 @@ class MacSistemi(commands.Cog):
         skor1, skor2 = 0, 0
         default_p = {"id": 0, "isim": "Yedek Oyuncu", "mevki": "OS", "bayrak": "🌐", "deger_str": "1M", "reyting": 6.0}
 
-        await ctx.send(f"🏟️ **{t1['orj_ad']} vs {t2['orj_ad']}** Maçı Başladı!")
+        embed = discord.Embed(
+            title=f"🏟️ {t1['orj_ad']} {skor1} - {skor2} {t2['orj_ad']}",
+            description="⏱️ **Dakika:** 0'\n⚽ Maç başlamak üzere...",
+            color=0x2b2d31
+        )
+        canli_mesaj = await ctx.send(embed=embed)
 
-        for dk in range(1, 90, random.randint(4, 9)):
-            atak_t = t1 if random.choice([True, False]) else t2
-            defans_t = t2 if atak_t == t1 else t1
-            a_kadro = k1_aktif if atak_t == t1 else k2_aktif
-            d_kadro = k2_aktif if atak_t == t1 else k1_aktif
+        # 1'den 90'a kadar teker teker ilerler
+        for dk in range(1, 91):
+            olay_ihtimali = random.random()
+            olay_metni = "Orta sahada paslaşmalar sürüyor..."
 
-            o_atak = random.choice(a_kadro) if a_kadro else default_p
-            o_hedef = random.choice(a_kadro) if a_kadro else o_atak
-            o_def = random.choice(d_kadro) if d_kadro else default_p
+            # Her dakikada %18 ihtimalle önemli bir olay yaşanır
+            if olay_ihtimali < 0.18:
+                atak_t = t1 if random.choice([True, False]) else t2
+                defans_t = t2 if atak_t == t1 else t1
+                a_kadro = k1_aktif if atak_t == t1 else k2_aktif
+                d_kadro = k2_aktif if atak_t == t1 else k1_aktif
 
-            olay = random.choices(["PAS", "ŞUT", "GOL", "SARI_KART", "KIRMIZI_KART", "SAKATLIK"], weights=[35, 20, 15, 10, 5, 5])[0]
-            embed = discord.Embed(title=f"{dk}' {t1['orj_ad']} {skor1} - {skor2} {t2['orj_ad']}", color=0x2b2d31)
+                o_atak = random.choice(a_kadro) if a_kadro else default_p
+                o_hedef = random.choice(a_kadro) if a_kadro else o_atak
+                o_def = random.choice(d_kadro) if d_kadro else default_p
 
-            if olay == "GOL":
-                if atak_t == t1: skor1 += 1
-                else: skor2 += 1
-                if o_atak["id"] != 0:
-                    self.istatistikler[o_atak["id"]]["gol"] += 1
-                if o_hedef["id"] != 0 and o_hedef["id"] != o_atak["id"]:
-                    self.istatistikler[o_hedef["id"]]["asist"] += 1
-                embed.description = f"⚽ **GOOOOL!** **{o_atak['isim']}** fileleri havalandırdı!"
+                olay = random.choices(["PAS", "ŞUT", "GOL", "SARI_KART", "KIRMIZI_KART", "SAKATLIK"], weights=[30, 25, 20, 12, 6, 7])[0]
 
-            elif olay == "SARI_KART" and o_def["id"] != 0:
-                st = self.istatistikler[o_def["id"]]
-                st["sari_kart_toplam"] += 1
-                if st["sari_kart_toplam"] % 2 == 0:
-                    st["ceza_maci"] = 1
-                    embed.description = f"🟨🟨 **İKİNCİ SARI KART!** **{o_def['isim']}** kırmızı kart gördü ve cezalı duruma düştü!"
-                else:
-                    embed.description = f"🟨 **SARI KART!** **{o_def['isim']}** sert müdahalesi nedeniyle sarı kart gördü."
+                if olay == "GOL":
+                    if atak_t == t1: skor1 += 1
+                    else: skor2 += 1
+                    if o_atak["id"] != 0:
+                        self.istatistikler[o_atak["id"]]["gol"] += 1
+                    if o_hedef["id"] != 0 and o_hedef["id"] != o_atak["id"]:
+                        self.istatistikler[o_hedef["id"]]["asist"] += 1
+                    olay_metni = f"⚽ **GOOOOL!** **{o_atak['isim']}** fileleri havalandırdı!"
 
-            elif olay == "KIRMIZI_KART" and o_def["id"] != 0:
-                self.istatistikler[o_def["id"]]["ceza_maci"] = 1
-                embed.description = f"🟥 **DİREKT KIRMIZI KART!** **{o_def['isim']}** oyundan ihraç edildi!"
+                elif olay == "SARI_KART" and o_def["id"] != 0:
+                    st = self.istatistikler[o_def["id"]]
+                    st["sari_kart_toplam"] += 1
+                    if st["sari_kart_toplam"] % 2 == 0:
+                        st["ceza_maci"] = 1
+                        olay_metni = f"🟨🟨 **İKİNCİ SARI KART!** **{o_def['isim']}** oyundan atıldı ve cezalı!"
+                    else:
+                        olay_metni = f"🟨 **SARI KART!** **{o_def['isim']}** faul sonrası kart gördü."
 
-            elif olay == "SAKATLIK" and o_atak["id"] != 0:
-                s_sure = random.randint(1, 3)
-                self.istatistikler[o_atak["id"]]["sakatlik_maci"] = s_sure
-                embed.description = f"🏥 **SAKATLIK!** **{o_atak['isim']}** sakatlandı! ({s_sure} maç yok)"
+                elif olay == "KIRMIZI_KART" and o_def["id"] != 0:
+                    self.istatistikler[o_def["id"]]["ceza_maci"] = 1
+                    olay_metni = f"🟥 **DİREKT KIRMIZI KART!** **{o_def['isim']}** oyundan ihraç edildi!"
 
-            elif olay == "ŞUT":
-                embed.description = f"🎯 **ŞUT!** **{o_atak['isim']}** sert vurdu ancak top az farkla dışarıda."
+                elif olay == "SAKATLIK" and o_atak["id"] != 0:
+                    s_sure = random.randint(1, 3)
+                    self.istatistikler[o_atak["id"]]["sakatlik_maci"] = s_sure
+                    olay_metni = f"🏥 **SAKATLIK!** **{o_atak['isim']}** sakatlanarak kenara geldi."
 
-            else:
-                embed.description = f"🔄 **{o_atak['isim']}** orta sahada şık bir pas çıkardı."
+                elif olay == "ŞUT":
+                    olay_metni = f"🎯 **ŞUT!** **{o_atak['isim']}** sert vurdu, top az farkla avuta çıktı!"
 
-            if olay in ["GOL", "SARI_KART", "KIRMIZI_KART", "SAKATLIK"]:
-                await ctx.send(embed=embed)
-                await asyncio.sleep(2)
+            # Canlı skor tabelasını güncelle
+            embed.title = f"🏟️ {t1['orj_ad']} {skor1} - {skor2} {t2['orj_ad']}"
+            embed.description = f"⏱️ **Dakika:** {dk}'\n{olay_metni}"
+            await canli_mesaj.edit(embed=embed)
+            
+            # Akıcı canlı yayın hissi için her dakika arası 0.7 saniye
+            await asyncio.sleep(0.7)
 
+        # Maç Sonu Hesaplamaları
         t1["om"] += 1; t2["om"] += 1
         t1["ag"] += skor1; t1["yg"] += skor2
         t2["ag"] += skor2; t2["yg"] += skor1
@@ -381,19 +392,26 @@ class MacSistemi(commands.Cog):
             if st["sakatlik_maci"] > 0: st["sakatlik_maci"] -= 1
 
         res_embed = discord.Embed(
-            title="🔔 MAÇ SONUCU",
+            title="🔔 MAÇ BİTTİ",
             description=f"🏁 **{t1['orj_ad']} {skor1} - {skor2} {t2['orj_ad']}**",
             color=0x2b2d31
         )
         await ctx.send(embed=res_embed)
 
     @commands.command(name="takımaç", aliases=["takimac"])
-    async def takim_mac(self, ctx, t1_ad: str = None, t2_ad: str = None):
+    async def takim_mac(self, ctx, *, argumanlar: str = None):
         if not ctx.author.guild_permissions.administrator: return
-        if not t1_ad or not t2_ad:
-            await ctx.send("⚠️ Kullanım: `.takımaç <Takım1> <Takım2>`")
+        if not argumanlar or " vs " not in argumanlar.lower():
+            await ctx.send("⚠️ Kullanım: `.takımaç Uygur Team vs Paris Saint Germain`")
             return
-        await self.simule_et(ctx, t1_ad, t2_ad)
+        
+        t1_ad, t2_ad = argumanlar.lower().split(" vs ")
+        if t1_ad.strip() not in self.takimlar or t2_ad.strip() not in self.takimlar:
+            await ctx.send("❌ Takımlardan biri veya ikisi bulunamadı.")
+            return
+
+        await self.simule_et(ctx, t1_ad.strip(), t2_ad.strip())
 
 async def setup(bot):
     await bot.add_cog(MacSistemi(bot))
+
