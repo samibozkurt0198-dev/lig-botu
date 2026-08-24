@@ -38,7 +38,7 @@ class MacSistemi(commands.Cog):
             "gol": 0, "asist": 0, "sut": 0, "pas": 0
         }
 
-    # POLİTİKA: '.m' ana komut grubu
+    # '.m' ana komut grubu
     @commands.group(name="m", invoke_without_command=True)
     async def m_group(self, ctx):
         await ctx.invoke(self.mac_yardim)
@@ -48,7 +48,7 @@ class MacSistemi(commands.Cog):
     async def mac_yardim(self, ctx):
         embed = discord.Embed(
             title="⚽ TENDO LEAGUE — MAÇ BOTU",
-            description="🎡 Gelişmiş takım ve maç simülasyon sistemi.\n\nOyuncu bilgileri Discord nickname'inden otomatik okunur.",
+            description="🎡 Gelişmiş takım, puan durumu ve maç simülasyon sistemi.\n\nOyuncu bilgileri Discord nickname'inden otomatik okunur.",
             color=0x2b2d31
         )
         embed.add_field(
@@ -57,8 +57,8 @@ class MacSistemi(commands.Cog):
             inline=False
         )
         embed.add_field(
-            name="⚽ MAÇ SİSTEMİ",
-            value="`.takımaç Milan PSG` veya `.m aç Milan PSG`",
+            name="⚽ MAÇ & PUAN SİSTEMİ",
+            value="`.takımaç Milan PSG` veya `.m aç Milan PSG`\n`.puan` veya `.m puan` (Puan Durumu)",
             inline=False
         )
         embed.add_field(
@@ -78,7 +78,17 @@ class MacSistemi(commands.Cog):
             await ctx.send("⚠️ Kullanım: `.takımkur <TakımAdı>`")
             return
 
-        self.takimlar[takim_adi.lower()] = {"orj_ad": takim_adi, "oyuncular": []}
+        key = takim_adi.lower()
+        if key in self.takimlar:
+            await ctx.send(f"❌ **{takim_adi}** zaten kurulmuş.")
+            return
+
+        self.takimlar[key] = {
+            "orj_ad": takim_adi,
+            "oyuncular": [],
+            "om": 0, "g": 0, "b": 0, "m": 0,
+            "ag": 0, "yg": 0, "av": 0, "puan": 0
+        }
         await ctx.send(f"✅ **{takim_adi}** takımı başarıyla oluşturuldu!")
 
     @commands.command(name="takımoyuncuekle", aliases=["takimoyuncuekle"])
@@ -164,6 +174,58 @@ class MacSistemi(commands.Cog):
             embed.description += f"\n{liste}"
 
         await ctx.send(embed=embed)
+
+    # PUAN DURUMU KOMUTLARI
+    @m_group.command(name="puan")
+    async def m_puan(self, ctx):
+        await self.puan_durumu(ctx)
+
+    @commands.command(name="puan", aliases=["puandurumu", "puan-durumu"])
+    async def puan_durumu(self, ctx):
+        if not self.takimlar:
+            await ctx.send("❌ Henüz kayıtlı takım veya maç bulunmuyor!")
+            return
+
+        siralama = sorted(
+            self.takimlar.values(),
+            key=lambda x: (x["puan"], x["av"], x["ag"]),
+            reverse=True
+        )
+
+        tablo = "```\n"
+        tablo += f"{'#':<3} {'Takım':<15} {'OM':<4} {'G':<3} {'B':<3} {'M':<3} {'AG':<4} {'YG':<4} {'AV':<4} {'P':<3}\n"
+        tablo += "─" * 52 + "\n"
+
+        for idx, t in enumerate(siralama, 1):
+            tablo += f"{idx:<3} {t['orj_ad'][:14]:<15} {t['om']:<4} {t['g']:<3} {t['b']:<3} {t['m']:<3} {t['ag']:<4} {t['yg']:<4} {t['av']:<4} {t['puan']:<3}\n"
+
+        tablo += "```"
+
+        embed = discord.Embed(
+            title="🏆 TENDO LEAGUE — PUAN DURUMU",
+            description=tablo,
+            color=0x2b2d31
+        )
+        embed.set_footer(text="Tendo League • Official Standings")
+        await ctx.send(embed=embed)
+
+    @commands.command(name="puansıfırla", aliases=["puansifirla"])
+    async def puan_sifirla(self, ctx):
+        if not ctx.author.guild_permissions.administrator:
+            await ctx.send("❌ Bu komutu sadece yöneticiler kullanabilir.")
+            return
+
+        for key in self.takimlar:
+            self.takimlar[key]["om"] = 0
+            self.takimlar[key]["g"] = 0
+            self.takimlar[key]["b"] = 0
+            self.takimlar[key]["m"] = 0
+            self.takimlar[key]["ag"] = 0
+            self.takimlar[key]["yg"] = 0
+            self.takimlar[key]["av"] = 0
+            self.takimlar[key]["puan"] = 0
+
+        await ctx.send("🔄 Tüm takımların puan durumu sıfırlandı!")
 
     @commands.command(name="takımaç", aliases=["takimac"])
     async def takim_mac(self, ctx, t1_ad: str = None, t2_ad: str = None):
@@ -299,6 +361,30 @@ class MacSistemi(commands.Cog):
 
         kazanan = t1['orj_ad'] if skor1 > skor2 else (t2['orj_ad'] if skor2 > skor1 else "Berabere")
         
+        # Puan Durumu İstatistiklerini Güncelleme
+        t1["om"] += 1
+        t2["om"] += 1
+        t1["ag"] += skor1
+        t1["yg"] += skor2
+        t2["ag"] += skor2
+        t2["yg"] += skor1
+        t1["av"] = t1["ag"] - t1["yg"]
+        t2["av"] = t2["ag"] - t2["yg"]
+
+        if skor1 > skor2:
+            t1["g"] += 1
+            t1["puan"] += 3
+            t2["m"] += 1
+        elif skor2 > skor1:
+            t2["g"] += 1
+            t2["puan"] += 3
+            t1["m"] += 1
+        else:
+            t1["b"] += 1
+            t2["b"] += 1
+            t1["puan"] += 1
+            t2["puan"] += 1
+
         tum_oyuncular = t1["oyuncular"] + t2["oyuncular"]
         mvp = max(tum_oyuncular, key=lambda x: x["reyting"]) if tum_oyuncular else {"isim": "Yok", "mevki": "OS", "bayrak": "🌐", "deger_str": "0M", "reyting": 0.0}
 
